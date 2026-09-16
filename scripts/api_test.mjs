@@ -1,4 +1,4 @@
-/* テクノのビンゴ — /api の検算（KV を偽物に差し替えて Worker を直接叩く）
+/* テクノ☆ビンゴ — /api の検算（Durable Object を偽物に差し替えて Worker を直接叩く）
  *   docs/05_ARCHITECTURE_DESIGN.md の API 表どおりか、PIN・409・ETag/304・sync を確かめる。
  *   実行: node scripts/api_test.mjs   （Node 18 以上。Request/Response/crypto.subtle を使う）
  */
@@ -6,17 +6,36 @@ import path from "node:path";
 import { pathToFileURL, fileURLToPath } from "node:url";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
-const worker = (await import(pathToFileURL(path.join(here, "..", "server", "src", "index.js")).href)).default;
+const mod = await import(pathToFileURL(path.join(here, "..", "server", "src", "index.js")).href);
+const worker = mod.default;
+const BingoGame = mod.BingoGame;
 
 let ok = 0, ng = 0;
 const check = (cond, msg) => { if (cond) ok++; else { ng++; console.error("  NG: " + msg); } };
 
-const kv = {
-  m: new Map(),
-  async get(k) { return this.m.has(k) ? this.m.get(k) : null; },
-  async put(k, v) { this.m.set(k, v); }
-};
-const env = { BINGO: kv };
+/* Durable Object の偽物：ゲーム ID ごとに 1 インスタンス（＝本番と同じ強整合のふるまい）。
+   ストレージは Map。値は毎回コピーして渡し、保存していない書き換えが漏れないようにする。 */
+function fakeNamespace(cls) {
+  const instances = new Map();
+  return {
+    idFromName(name) { return { name }; },
+    get(id) {
+      let inst = instances.get(id.name);
+      if (!inst) {
+        const mem = new Map();
+        const storage = {
+          async get(k) { return mem.has(k) ? structuredClone(mem.get(k)) : undefined; },
+          async put(k, v) { mem.set(k, structuredClone(v)); },
+          async delete(k) { mem.delete(k); }
+        };
+        inst = new cls({ storage }, {});
+        instances.set(id.name, inst);
+      }
+      return { fetch: (req) => inst.fetch(req) };
+    }
+  };
+}
+const env = { GAME: fakeNamespace(BingoGame) };
 const GID = "techno-20260930";
 
 async function call(method, p, body, headers = {}) {
@@ -25,7 +44,7 @@ async function call(method, p, body, headers = {}) {
   const res = await worker.fetch(new Request("https://example.test" + p, init), env);
   let data = null;
   if (res.status !== 304) { const t = await res.text(); try { data = t ? JSON.parse(t) : null; } catch { data = null; } }
-  return { status: res.status, etag: res.headers.get("ETag"), data };
+  return { status: res.status, etag: res.headers.get("ETag"), data, cc: res.headers.get("Cache-Control") };
 }
 const G = (p = "") => "/api/game/" + GID + p;
 
@@ -48,6 +67,14 @@ const etag1 = r.etag;
 check(r.status === 200 && etag1 === '"' + r.data.game.version + '"', "ETag は version");
 check((await call("GET", G(), null, { "If-None-Match": etag1 })).status === 304, "同じ ETag なら 304");
 check((await call("GET", G(), null, { "If-None-Match": '"0"' })).status === 200, "違う ETag なら 200");
+
+/* --- 携帯の HTTP キャッシュに拾わせない（v05） --- */
+{
+  const g = await call("GET", G());
+  check(g.cc === "no-store", `GET state の Cache-Control が ${g.cc}（no-store であること）`);
+  const nm = await call("GET", G(), null, { "If-None-Match": g.etag });
+  check(nm.status === 304 && nm.cc === "no-store", "304 にも no-store が付く");
+}
 
 /* --- PIN --- */
 check((await call("POST", G("/draw"), { pin: "9999", seq: 1, number: 5 })).status === 401, "PIN 違いは 401");

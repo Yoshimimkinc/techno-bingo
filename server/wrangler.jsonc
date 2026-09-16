@@ -1,11 +1,12 @@
-// テクノのビンゴ — wrangler 設定
-// 参照: docs/05_ARCHITECTURE_DESIGN.md（Worker 1 本で静的配信＋API＋KV）
+// テクノ☆ビンゴ — wrangler 設定
+// 参照: docs/05_ARCHITECTURE_DESIGN.md（Worker 1 本で静的配信＋API＋Durable Object）
 //
-// 初回だけ管理者の許可を取ってから：
-//   1) cd server && npx wrangler kv namespace create BINGO
-//   2) 表示された id を下の kv_namespaces.id に貼る
-//   3) npx wrangler deploy
-// ローカル確認は npx wrangler dev（KV はローカルに自動で用意される）
+// 公開（管理者の許可を取ってから）：
+//   cd server && npx wrangler deploy
+//   ※ v05 で KV → Durable Object へ移行した。初回の deploy で下の migrations が適用される。
+//   ※ 旧 KV 名前空間 BINGO はもう使わない。deploy が通って動作を確認したあと
+//      `npx wrangler kv namespace list` で確認して削除してよい（中身はテストデータのみ）。
+// ローカル確認は npx wrangler dev（DO もローカルで動く）
 {
   "name": "techno-bingo",
   "main": "src/index.js",
@@ -23,8 +24,15 @@
     "not_found_handling": "none"
   },
 
-  "kv_namespaces": [
-    { "binding": "BINGO", "id": "1fb52fefd23f4193bf26eed08f560bb7" }
+  // ゲーム 1 つ＝DO 1 個。単一インスタンスなので、どの colo から読んでも必ず最新（強整合）。
+  // KV は結果整合で、別 colo の携帯が最大 60 秒古い値を読む（v04 までの遅れの原因）。
+  "durable_objects": {
+    "bindings": [
+      { "name": "GAME", "class_name": "BingoGame" }
+    ]
+  },
+  "migrations": [
+    { "tag": "v1", "new_sqlite_classes": ["BingoGame"] }
   ],
 
   "observability": { "enabled": true }

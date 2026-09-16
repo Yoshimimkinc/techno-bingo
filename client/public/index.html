@@ -294,13 +294,29 @@
     });
   }
 
+  /* 画面を暗くさせない（対応端末だけ・失敗は黙って諦める）。
+     ビンゴ中に画面が消えると番号を見逃すため。ユーザー操作の中でしか要求できない。 */
+  var wakeLock = null;
+  function keepAwake() {
+    try {
+      if (!navigator.wakeLock || !navigator.wakeLock.request) return;
+      navigator.wakeLock.request("screen").then(function (w) {
+        wakeLock = w;
+        w.addEventListener("release", function () { wakeLock = null; });
+      })["catch"](function () { /* 非対応・拒否は無視 */ });
+    } catch (e) { /* 続行 */ }
+  }
+
   TB.qs("#btn-see").onclick = function () {
     el.g0.classList.remove("on"); el.g1.classList.add("on");
     render(); setStatus(); poll();
-    if (!timer) timer = setInterval(poll, 2000);     // 2秒ごと（304中心）
+    keepAwake();
+    if (!timer) timer = setInterval(poll, 1000);     // 1秒ごと（304中心なので軽い）
   };
 
-  document.addEventListener("visibilitychange", function () { if (!document.hidden) poll(); });
+  document.addEventListener("visibilitychange", function () {
+    if (!document.hidden) { poll(); if (!wakeLock) keepAwake(); }   // 前面に戻った瞬間に追いつく
+  });
   window.addEventListener("online", poll);
   window.addEventListener("resize", render);
   setInterval(setStatus, 1000);

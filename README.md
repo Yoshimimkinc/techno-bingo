@@ -19,7 +19,7 @@
 ## 動かし方
 - ローカル確認：`client/public/host.html` をブラウザで開けば単独モードで動く（サーバ無し）。
 - 開発サーバ：`cd server && npx wrangler dev`
-- 公開：`cd server && npx wrangler deploy`（初回は `npx wrangler kv namespace create BINGO` で KV を作り `wrangler.jsonc` に ID を書く）
+- 公開：`cd server && npx wrangler deploy`（状態は Durable Object。初回 deploy で `migrations` が適用される。KV はもう使わない）
 - 検討用の公開（GitHub Pages・サーバ無し＝モード A）：
   - ホスト画面 https://yoshimimkinc.github.io/techno-bingo/host.html
   - 参加者画面 https://yoshimimkinc.github.io/techno-bingo/ （Pages には API が無いので「通信断」表示のまま。参加者画面を本番で使うなら Worker へ）
