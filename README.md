@@ -24,7 +24,10 @@
   - ホスト画面 https://yoshimimkinc.github.io/techno-bingo/host.html
   - 参加者画面 https://yoshimimkinc.github.io/techno-bingo/ （Pages には API が無いので「通信断」表示のまま。参加者画面を本番で使うなら Worker へ）
   - リポジトリ https://github.com/Yoshimimkinc/techno-bingo （`main` に push すると Actions が `client/public` を配信）
-- Worker 公開 URL（モード B）：（デプロイ後に記入）
+- Worker 公開 URL（モード B・参加者画面が動く本番）：
+  - ホスト画面 https://techno-bingo.mk-inc.workers.dev/host
+  - 参加者画面（QR の飛び先） https://techno-bingo.mk-inc.workers.dev/
+  - KV `BINGO`（id 1fb52fef…）。更新は `cd server && npx wrangler deploy`（2026-09-16 初回デプロイ）
 
 ## 当日の手順（案）
 1. ホストのスマホで `/host` を開き PIN を入れて「はじめる」。

@@ -24,7 +24,7 @@
   },
 
   "kv_namespaces": [
-    { "binding": "BINGO", "id": "<wrangler kv namespace create BINGO の ID をここに>" }
+    { "binding": "BINGO", "id": "1fb52fefd23f4193bf26eed08f560bb7" }
   ],
 
   "observability": { "enabled": true }
