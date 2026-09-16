@@ -67,28 +67,18 @@ body { display: flex; flex-direction: column; }
 .screen { display: none; flex: 1 1 auto; min-height: 0; flex-direction: column; }
 .screen.on { display: flex; }
 
-/* ---------- ロゴ（支給画像・client/public/img/） ----------
-   v06 で自前の文字組みをやめ、管理者から届いたピクセルアートのロゴ画像に差し替えた。
-   hero＝CRT の画面まるごと（スタート画面の主役）／logo＝タイトル文字＋宇宙船の帯。
+/* ---------- ロゴ（SVG・client/public/logo.svg） ----------
+   v06b で画像の貼り付けをやめ、お手本 taitoru.jpg の意匠を SVG で描き直した。
+   外部参照なし・フォント不要（文字はアウトライン化済み）＝会場が圏外でも崩れない。
+   幅は「使える高さ」でも頭打ちにする（縦横比 1168:378 ＝ 3.09）。
    画像が読めなかった時は alt の「テクノ⚡ビンゴ」が見出しとして出る。 */
-.tb-hero, .tb-logo { margin: 0 auto; flex: 0 0 auto; }
-.tb-hero img, .tb-logo img,
-.tb-hero picture, .tb-logo picture {
+.tb-logo { margin: 0 auto; flex: 0 0 auto; }
+.tb-logo img {
   display: block; width: 100%; height: auto;
+  color: #ffb347; font-family: var(--ui-font); font-weight: 900; font-size: 22px;  /* alt 用 */
 }
-.tb-hero img, .tb-logo img {
-  /* 画像が出ない時の代替テキストを読めるようにしておく */
-  color: #ffb347; font-family: var(--ui-font); font-weight: 900; font-size: 22px;
-}
-/* 幅だけでなく「使える高さ」でも頭打ちにする（横持ち・低い画面でも他の要素を押し出さない）。
-   hero の縦横比 1047:650 ＝ 1.611／logo は 952:504 ＝ 1.889。高さ上限 × 比率 で幅を決める。 */
-.tb-hero { width: min(100%, 720px, 64vh); }
-.tb-hero img {
-  border-radius: 16px;                 /* 元画像のブラウン管の丸角を隠す */
-  box-shadow: 0 12px 44px rgba(0, 0, 0, .6), 0 0 0 1px rgba(255, 255, 255, .06);
-}
-.tb-logo { width: min(74%, 520px, 30vh); padding: 4px 0 2px; }
-.tb-logo img { border-radius: 10px; }
+.tb-logo { width: min(74%, 520px, 46vh); padding: 4px 0 2px; }
+.tb-logo.big { width: min(94%, 680px, 58vh); padding: 2px 0 6px; }
 
 /* ---------- でか文字 ---------- */
 .bignum-wrap {
@@ -109,15 +99,6 @@ body { display: flex; flex-direction: column; }
 }
 .bignum.spin { color: #59648c; }                 /* 回転中は沈ませ、確定した瞬間を際立たせる */
 /* 確定演出：一瞬白く光って大きくなり、0.3 秒で最新色に落ち着く */
-.bignum.pop { animation: pop 300ms cubic-bezier(.2, 1.5, .35, 1); }
-@keyframes pop {
-  0% { transform: scale(0.62); opacity: .4; color: #ffffff; }
-  45% {
-    transform: scale(1.16); opacity: 1; color: #ffffff;
-    text-shadow: 0 0 min(7vw, 70px) rgba(255, 255, 255, .8);
-  }
-  100% { transform: scale(1); color: var(--c-latest); text-shadow: 0 0 0 rgba(255, 255, 255, 0); }
-}
 .bigletter {
   font-family: var(--num-font); font-weight: 700;
   font-size: min(12vw, 7vh); color: var(--accent); letter-spacing: .1em;
@@ -161,6 +142,23 @@ body { display: flex; flex-direction: column; }
 .chip.latest b { font-size: 44px; }
 .chip.latest small { opacity: .8; font-weight: 700; }
 .chips-empty { color: var(--muted); font-size: 16px; padding: 38px 4px; }
+
+
+/* 最新チップの滑り込みと縁光り（ホスト・v07。参加者のカードと対になる動き） */
+.chip.slidein { animation: chipin 560ms cubic-bezier(.2, 1.25, .3, 1); }
+@keyframes chipin {
+  0% { transform: translateX(-130%) scale(1.15); opacity: 0; }
+  55% { opacity: 1; }
+  100% { transform: translateX(0) scale(1); opacity: 1; }
+}
+.chip.neon { animation: chipneon 1600ms ease-out 1; }
+@keyframes chipneon {
+  0%   { box-shadow: 0 0 22px 6px #ffffff, 0 0 44px 12px var(--neon-cy); }
+  30%  { box-shadow: 0 0 20px 6px var(--neon-mg), 0 0 40px 10px var(--neon-cy); }
+  60%  { box-shadow: 0 0 20px 6px var(--neon-or), 0 0 42px 12px rgba(255, 43, 214, .45); }
+  100% { box-shadow: 0 0 0 3px rgba(255, 214, 10, .32); }
+}
+.chip.slidein.neon { animation: chipin 560ms cubic-bezier(.2, 1.25, .3, 1), chipneon 1600ms ease-out 1; }
 
 /* ---------- ボタン ---------- */
 .btn {
@@ -278,7 +276,7 @@ body.projector #h1.screen.on {
   height: 100vh; min-height: 0;
 }
 body.projector .topbar { grid-area: bar; }
-body.projector .tb-logo { grid-area: logo; width: min(260px, 22vh); margin: 0 0 0 10px; }
+body.projector .tb-logo { grid-area: logo; width: min(300px, 30vh); margin: 2px 0 0 12px; }
 body.projector .bignum-wrap { grid-area: num; min-height: 0; }
 body.projector .footer { grid-area: btn; }
 body.projector .chips { display: none; }          /* 盤面が履歴を兼ねる */
@@ -323,6 +321,13 @@ body.projector .bigsub { font-size: min(1.5vw, 20px); }
    遠目で見たとき「塗られたマスの並び」だけが浮き上がるようにする。 */
 .bcell { background: var(--cell-off-bg); color: var(--cell-off-fg); }
 .bcell.hit { background: var(--c-hit); color: var(--c-on-hit); }
+.bcell.neon { animation: bcellneon 1600ms ease-out 1; }
+@keyframes bcellneon {
+  0%   { box-shadow: 0 0 26px 8px #ffffff, 0 0 52px 16px var(--neon-cy); filter: brightness(2); }
+  30%  { box-shadow: 0 0 22px 7px var(--neon-mg), 0 0 46px 14px var(--neon-cy); filter: brightness(1.5); }
+  60%  { box-shadow: 0 0 20px 6px var(--neon-or), 0 0 40px 12px rgba(255, 43, 214, .5); filter: brightness(1.2); }
+  100% { box-shadow: 0 0 0 min(0.5vw, 8px) rgba(255, 214, 10, .35); filter: none; }
+}
 .bcell.latest {
   background: var(--c-latest); color: var(--c-on-latest);
   outline: min(0.45vw, 7px) solid #ffffff;
@@ -350,7 +355,7 @@ body.guest {
 }
 
 /* 参加者画面 G1 の見出し（揺らす対象） */
-body.guest #glogo.tb-logo { width: min(80%, 420px, 26vh); padding: 2px 0 0; }
+body.guest #glogo.tb-logo { width: min(80%, 420px, 34vh); padding: 2px 0 0; }
 
 /* ネオン 3 色（演出専用） */
 :root {
@@ -421,7 +426,7 @@ body.guest .cell.neon { animation: cellneon 1600ms ease-out 1 !important; }
 @keyframes beat3 { 0% { opacity: 0; } 12% { opacity: 1; } 100% { opacity: 0; } }
 
 /* ---------- ①画面ゆれ（±6px・0.3 秒） ---------- */
-#g1.quake { animation: quake 100ms steps(2, end) 3; }   /* 100ms × 3 ＝ 0.3 秒 */
+.quake { animation: quake 100ms steps(2, end) 3; }   /* 100ms × 3 ＝ 0.3 秒 */
 @keyframes quake {
   0% { transform: translate(0, 0); }
   25% { transform: translate(-6px, 3px); }
@@ -508,12 +513,12 @@ body.guest .bignum { position: relative; z-index: 2; }
 }
 
 /* ---------- ③パーティクル（JS が作って演出後に外す） ---------- */
-.fx { position: fixed; inset: 0; width: 100%; height: 100%; pointer-events: none; z-index: 4; }
+.fx { position: fixed; pointer-events: none; z-index: 4; }   /* 位置と大きさは JS が指定する */
 
 /* ---------- 動きを減らす設定：拡大と色だけ ---------- */
 @media (prefers-reduced-motion: reduce) {
   .flash, .fx, .neongrid, .shock { display: none !important; }
-  #g1.quake, .quake2 { animation: none !important; }
+  .quake, .quake2 { animation: none !important; }
   body.guest .cell.slidein, body.guest .cell.neon { animation: none !important; }
   .bignum.mega { animation: megaquiet 400ms ease-out; }
   @keyframes megaquiet {

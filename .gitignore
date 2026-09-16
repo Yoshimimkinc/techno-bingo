@@ -11,3 +11,6 @@ CLAUDE.md
 
 # ロゴの原本（Dropbox 側に置いておく。配信するのは client/public/img/ の切り出し済みだけ）
 /taitoru.jpg
+
+# ロゴ生成の一時ファイル（フォント本体はコミットしない）
+scripts/_dela.ttf

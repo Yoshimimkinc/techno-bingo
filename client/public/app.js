@@ -16,6 +16,10 @@
   TB.MAX_NUMBER = 75;
   TB.DEFAULT_GAME_ID = "techno-20260930";
   TB.TITLE = "テクノ⚡ビンゴ";
+  // PIN は宴会用途では使わない（管理者 2026-09-16 16:45）。
+  // サーバ側の検証は互換のため残っているので、クライアントが固定値を自動で送る。
+  // 実質のガードは「URL を教えた人しか開けない」こと。
+  TB.PIN = "0000";
   TB.LETTERS = ["B", "I", "N", "G", "O"];
 
   /* ============================================================
@@ -654,6 +658,201 @@
       var t = e.target && e.target.closest ? e.target.closest(selector) : null;
       if (t && container.contains(t)) TB.hitFeedback(t);
     });
+  };
+
+
+  /* ============================================================
+   * 9. 確定の演出（v07・ホストと参加者で共通のエンジン）
+   *    ①暗転→ネオン 3 拍の光＋画面ゆれ＋ネオングリッド
+   *    ②でか文字が 2.2 倍から 1 回跳ねて着地・4 層グローが 2 回脈打つ
+   *    ③紙吹雪＋星＋スパーク ④バイブ 3 連 ⑤見出しの揺れ
+   *    合計 1.6 秒。最後の 0.4 秒で必ず読める状態に落ち着く。
+   *    時間基準で描くので、コマ落ちしても必ず 1.6 秒で終わる。
+   * ==========================================================*/
+  TB.FX_SHOW_MS = 1600;          // 演出全体
+  TB.FX_PARTICLE_MS = 1500;      // 粒子の寿命
+
+  var fxRaf = null, fxCanvas = null, fxKill = null, fxEnd = null, fxCfg = null;
+
+  TB.reducedMotion = function () {
+    try { return !!(root.matchMedia && root.matchMedia("(prefers-reduced-motion: reduce)").matches); }
+    catch (e) { return false; }
+  };
+
+  /** 端末性能で粒子数を決める（既定は上限いっぱい・非力な端末だけ半分） */
+  TB.particleCount = function (max) {
+    var n = max || 120;
+    try {
+      var cores = navigator.hardwareConcurrency || 8;
+      var dpr = root.devicePixelRatio || 1;
+      if (cores <= 4 || dpr >= 3) n = Math.round(n / 2);
+    } catch (e) { /* 分からなければ既定のまま */ }
+    return n;
+  };
+
+  function offClass(el, c) { if (el) el.classList.remove(c); }
+
+  /** 走っている演出を完全に止めて後片付けする（連続で来ても重ならない） */
+  TB.stopFx = function () {
+    if (fxRaf) { cancelAnimationFrame(fxRaf); fxRaf = null; }
+    if (fxKill) { clearTimeout(fxKill); fxKill = null; }
+    if (fxEnd) { clearTimeout(fxEnd); fxEnd = null; }
+    if (fxCanvas && fxCanvas.parentNode) fxCanvas.parentNode.removeChild(fxCanvas);
+    fxCanvas = null;
+    var c = fxCfg; fxCfg = null;
+    if (c) {
+      offClass(c.big, "mega"); offClass(c.flash, "on"); offClass(c.neongrid, "on");
+      offClass(c.shake, "quake"); offClass(c.shock, "on"); offClass(c.logo, "quake2");
+      if (c.onEnd) { try { c.onEnd(); } catch (e) { /* 呼び出し側の都合は握る */ } }
+    }
+  };
+
+  /**
+   * 演出を出す。cfg に渡した要素だけが動く（渡さなければその演出は出ない）。
+   *   big/flash/neongrid/shake/shock/logo … 対象の要素
+   *   count      … 粒子の上限（既定 120。プロジェクターは 160 まで）
+   *   area()     … 粒子を降らせる範囲 {x,y,w,h}（既定＝画面全体）
+   *   origin()   … 粒子の湧き出し位置 {x,y}（既定＝area の中央）
+   *   onEnd()    … 終了時に必ず呼ばれる（ボタンを戻すのに使う）
+   */
+  TB.showFx = function (cfg) {
+    TB.stopFx();
+    cfg = cfg || {};
+    fxCfg = cfg;
+
+    if (cfg.big) {
+      cfg.big.classList.remove("mega");
+      void cfg.big.offsetWidth;                   // 直前の演出を確実に打ち切る
+      cfg.big.classList.add("mega");
+    }
+    if (TB.reducedMotion()) {                     // 動きを減らす設定＝拡大と色だけ
+      fxEnd = setTimeout(TB.stopFx, 420);
+      return;
+    }
+    if (cfg.flash) cfg.flash.classList.add("on");
+    if (cfg.neongrid) cfg.neongrid.classList.add("on");
+    if (cfg.shake) cfg.shake.classList.add("quake");
+    if (cfg.shock) cfg.shock.classList.add("on");
+    if (cfg.logo) cfg.logo.classList.add("quake2");
+
+    confetti(cfg);
+    try { if (navigator.vibrate) navigator.vibrate(cfg.vibrate || [60, 40, 60, 40, 120]); }
+    catch (e) { /* 非対応端末は無視 */ }
+
+    fxEnd = setTimeout(TB.stopFx, TB.FX_SHOW_MS);  // 何があっても 1.6 秒で戻す
+  };
+
+  /* 紙吹雪＋星＋スパーク。canvas はここで作り、終わったら DOM から外す。 */
+  function confetti(cfg) {
+    var area = cfg.area ? cfg.area()
+      : { x: 0, y: 0, w: root.innerWidth, h: root.innerHeight };
+    if (!area || area.w < 40 || area.h < 40) return;
+
+    var cv = document.createElement("canvas");
+    cv.className = "fx";
+    cv.setAttribute("aria-hidden", "true");
+    cv.style.left = area.x + "px"; cv.style.top = area.y + "px";
+    cv.style.width = area.w + "px"; cv.style.height = area.h + "px";
+    document.body.appendChild(cv);
+    fxCanvas = cv;
+
+    // 粒子に解像度は要らない。1.5 で頭打ちにして塗る面積を減らす（低スペック対策）
+    var dpr = Math.min(root.devicePixelRatio || 1, 1.5);
+    cv.width = Math.round(area.w * dpr);
+    cv.height = Math.round(area.h * dpr);
+    var ctx = cv.getContext("2d");
+    if (!ctx) { TB.stopFx(); return; }
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+
+    var o = cfg.origin ? cfg.origin() : null;
+    var cx = o ? o.x - area.x : area.w / 2;
+    var cy = o ? o.y - area.y : area.h * 0.4;
+
+    var N = TB.particleCount(cfg.count || 120);
+    var COL = ["#ffd60a", "#ffffff", "#00e5ff", "#ff2bd6", "#ff7a18"];
+    var ps = [], i;
+    for (i = 0; i < N; i++) {
+      var a = (Math.PI * 2 * i) / N + Math.random() * 0.5;
+      var sp = 3.2 + Math.random() * 6.5;
+      ps.push({
+        x: cx, y: cy,
+        vx: Math.cos(a) * sp, vy: Math.sin(a) * sp - 2.4,
+        w: 4 + Math.random() * 6, h: 7 + Math.random() * 9,
+        rot: Math.random() * Math.PI, vr: (Math.random() - 0.5) * 0.4,
+        c: COL[i % COL.length], k: i % 3          // 0=紙吹雪 1=星 2=スパーク
+      });
+    }
+
+    function clearAll() {
+      ctx.save(); ctx.setTransform(1, 0, 0, 1, 0, 0);
+      ctx.clearRect(0, 0, cv.width, cv.height); ctx.restore();
+    }
+    function star(x, y, rad) {
+      ctx.beginPath();
+      for (var j = 0; j < 5; j++) {
+        var ang = (Math.PI * 2 * j) / 5 - Math.PI / 2;
+        ctx.lineTo(x + Math.cos(ang) * rad, y + Math.sin(ang) * rad);
+        ctx.lineTo(x + Math.cos(ang + Math.PI / 5) * rad * .45, y + Math.sin(ang + Math.PI / 5) * rad * .45);
+      }
+      ctx.closePath(); ctx.fill();
+    }
+
+    // 画面を裏に回されて rAF が止まっても、実時間で必ず消す
+    fxKill = setTimeout(function () {
+      if (fxRaf) { cancelAnimationFrame(fxRaf); fxRaf = null; }
+      if (cv.parentNode) cv.parentNode.removeChild(cv);
+      if (fxCanvas === cv) fxCanvas = null;
+    }, TB.FX_PARTICLE_MS + 120);
+
+    var LIFE = TB.FX_PARTICLE_MS, t0 = Date.now(), prev = t0;
+    (function frame() {
+      var now = Date.now(), t = now - t0;
+      var dt = Math.min((now - prev) / 16.67, 3);   // 経過時間で進める（コマ落ちに強い）
+      prev = now;
+      if (t >= LIFE) {
+        clearAll();
+        if (cv.parentNode) cv.parentNode.removeChild(cv);
+        if (fxCanvas === cv) fxCanvas = null;
+        fxRaf = null;
+        return;
+      }
+      clearAll();
+      var fade = Math.max(0, 1 - t / LIFE);
+      ctx.globalCompositeOperation = "lighter";     // 重なるほど光る
+      for (var i2 = 0; i2 < ps.length; i2++) {
+        var p = ps[i2];
+        p.x += p.vx * dt; p.y += p.vy * dt; p.vy += 0.17 * dt;
+        p.vx *= Math.pow(0.99, dt); p.rot += p.vr * dt;
+        ctx.fillStyle = p.c; ctx.strokeStyle = p.c;
+        if (p.k === 0) {
+          ctx.save(); ctx.translate(p.x, p.y); ctx.rotate(p.rot);
+          ctx.globalAlpha = fade * .38;             // にじみ（グローの代わり・影ぼかしは重い）
+          ctx.fillRect(-p.w * .95, -p.h * .8, p.w * 1.9, p.h * 1.6);
+          ctx.globalAlpha = fade;                   // 芯
+          ctx.fillRect(-p.w / 2, -p.h / 2, p.w, p.h);
+          ctx.restore();
+        } else if (p.k === 1) {
+          ctx.globalAlpha = fade * .38; star(p.x, p.y, p.w * 1.7);
+          ctx.globalAlpha = fade; star(p.x, p.y, p.w * .9);
+        } else {
+          ctx.globalAlpha = fade * .4; ctx.lineWidth = 6; ctx.beginPath();
+          ctx.moveTo(p.x, p.y); ctx.lineTo(p.x - p.vx * 2.4, p.y - p.vy * 2.4); ctx.stroke();
+          ctx.globalAlpha = fade; ctx.lineWidth = 2.2; ctx.beginPath();
+          ctx.moveTo(p.x, p.y); ctx.lineTo(p.x - p.vx * 2.4, p.y - p.vy * 2.4); ctx.stroke();
+        }
+      }
+      ctx.globalAlpha = 1;
+      ctx.globalCompositeOperation = "source-over";
+      fxRaf = requestAnimationFrame(frame);
+    })();
+  }
+
+  /** 要素の中心（粒子の湧き出し位置に使う） */
+  TB.centerOf = function (el) {
+    if (!el) return null;
+    var r = el.getBoundingClientRect();
+    if (!r.width) return null;
+    return { x: r.left + r.width / 2, y: r.top + r.height / 2 };
   };
 
   if (typeof module !== "undefined" && module.exports) module.exports = TB;

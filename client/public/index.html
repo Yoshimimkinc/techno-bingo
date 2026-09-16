@@ -13,12 +13,7 @@
 <!-- ===== G0 スタート ===== -->
 <section id="g0" class="screen on">
   <div class="start">
-    <h1 class="tb-hero">
-      <picture>
-        <source type="image/webp" srcset="./img/hero-720.webp 720w, ./img/hero.webp 1047w" sizes="(max-width:760px) 100vw, 720px">
-        <img src="./img/hero.jpg" alt="テクノ⚡ビンゴ" width="1047" height="650" decoding="async">
-      </picture>
-    </h1>
+    <h1 class="tb-logo big"><img src="./logo.svg" alt="テクノ⚡ビンゴ" width="1168" height="378" decoding="async"></h1>
     <h2>りれきの確認</h2>
     <p class="note">出た番号がこの画面に出ます。押す物はありません。手元のビンゴカードと見くらべてください。</p>
     <button id="btn-see" class="btn btn-primary">みる</button>
@@ -32,12 +27,7 @@
     <span class="spacer"></span>
     <span class="status" id="count">0 / 75</span>
   </div>
-  <h1 class="tb-logo" id="glogo">
-    <picture>
-      <source type="image/webp" srcset="./img/logo-720.webp 720w, ./img/logo.webp 952w" sizes="(max-width:520px) 80vw, 420px">
-      <img src="./img/logo.jpg" alt="テクノ⚡ビンゴ" width="952" height="504" decoding="async">
-    </picture>
-  </h1>
+  <h1 class="tb-logo" id="glogo"><img src="./logo.svg" alt="テクノ⚡ビンゴ" width="1168" height="378" decoding="async"></h1>
   <div class="bignum-wrap" style="flex:0 0 auto;padding:2px 0 2px;">
     <div class="shock" id="shock" aria-hidden="true"><i></i><i></i><i></i></div>
     <div id="bignum" class="bignum">--</div>
@@ -68,11 +58,6 @@
   var draws = [], etag = null, lastOk = null, timer = null;
   var prevLen = null;                 // null＝まだ一度も受け取っていない（初回は演出しない）
 
-  var reduceMotion = (function () {
-    try { return window.matchMedia && matchMedia("(prefers-reduced-motion: reduce)").matches; }
-    catch (e) { return false; }
-  })();
-
   /* ============================================================
    * 表示
    * ==========================================================*/
@@ -93,7 +78,7 @@
     // 新しい 1 枚は上から滑り込み、1.6 秒だけネオンの縁が光る
     if (isNew) {
       var top = el.grid.firstChild;
-      if (top) { top.className += reduceMotion ? "" : " slidein neon"; }
+      if (top) { top.className += TB.reducedMotion() ? "" : " slidein neon"; }
     }
   }
 
@@ -109,165 +94,16 @@
   }
 
   /* ============================================================
-   * 確定の演出（v04・新しい 1 件を受け取った時だけ）
-   *   ①暗転→ネオン 3 拍の光＋画面ゆれ＋ネオングリッド
-   *   ②でか文字が 2.2 倍から 1 回跳ねて着地・4 層グローが 2 回脈打つ
-   *   ③紙吹雪＋星＋スパーク（最大 120 個）
-   *   ④バイブ 3 連
-   *   合計 1.6 秒。最後の 0.4 秒で必ず読める状態に落ち着く。
-   *   初回のまとめ受信では出さない。動きを減らす設定なら②の拡大と色だけ。
+   * 確定の演出（v07 で app.js の共通エンジン TB.showFx に集約）
+   *   ここは「どの要素を動かすか」を渡すだけ。中身は両画面で同じもの。
    * ==========================================================*/
-  var SHOW_MS = 1600;               // 演出全体の長さ（これを超えない）
-  var FX_MS = 1500;                 // パーティクルの寿命
-  var fxRaf = null, fxCanvas = null, fxKill = null, showKill = null;
-
-  /** 端末性能で粒子数を決める（既定は上限いっぱい） */
-  function particleCount() {
-    var n = 120;
-    try {
-      var cores = navigator.hardwareConcurrency || 8;
-      var dpr = window.devicePixelRatio || 1;
-      if (cores <= 4 || dpr >= 3) n = 60;
-    } catch (e) { /* 分からなければ既定のまま */ }
-    return n;
-  }
-
-  /** 走っている演出を完全に止めて後片付けする（連続で来ても重ならない） */
-  function stopShow() {
-    if (fxRaf) { cancelAnimationFrame(fxRaf); fxRaf = null; }
-    if (fxKill) { clearTimeout(fxKill); fxKill = null; }
-    if (showKill) { clearTimeout(showKill); showKill = null; }
-    if (fxCanvas && fxCanvas.parentNode) fxCanvas.parentNode.removeChild(fxCanvas);
-    fxCanvas = null;
-    el.g1.classList.remove("quake");
-    el.flash.classList.remove("on");
-    el.grid2.classList.remove("on");
-    el.shock.classList.remove("on");
-    el.logo.classList.remove("quake2");
-    el.big.classList.remove("mega");
-  }
-
   function celebrate() {
-    stopShow();
-    void el.big.offsetWidth;                       // 直前の演出を確実に打ち切る
-
-    el.big.classList.add("mega");                  // ②拡大・バウンス・グロー
-    if (reduceMotion) {
-      showKill = setTimeout(function () { el.big.classList.remove("mega"); }, 420);
-      return;
-    }
-
-    el.flash.classList.add("on");                  // ①光（ドン・ドドン）
-    el.grid2.classList.add("on");                  // ①ネオングリッド
-    el.g1.classList.add("quake");                  // ①画面ゆれ
-    el.shock.classList.add("on");                  // ②ショックウェーブ
-    el.logo.classList.add("quake2");               // ⑤見出しも揺れる
-
-    confetti(particleCount());                     // ③パーティクル
-    try { if (navigator.vibrate) navigator.vibrate([60, 40, 60, 40, 120]); } catch (e) { /* 非対応端末は無視 */ }
-
-    // 1.6 秒で必ず全部を戻す（フレーム落ちしても時間で終わらせる）
-    showKill = setTimeout(stopShow, SHOW_MS);
-  }
-
-  /* 紙吹雪＋星＋スパーク。canvas はここで作り、終わったら DOM から外す。
-     動きは「経過時間」で計算するので、フレームが落ちても 1.5 秒で必ず終わる。 */
-  function confetti(N) {
-    var cv = document.createElement("canvas");
-    cv.className = "fx";
-    cv.setAttribute("aria-hidden", "true");
-    document.body.appendChild(cv);
-    fxCanvas = cv;
-
-    var W = window.innerWidth, H = window.innerHeight;
-    // 粒子に解像度は要らない。1.5 で頭打ちにして塗る面積を減らす（低スペック対策）
-    var dpr = Math.min(window.devicePixelRatio || 1, 1.5);
-    cv.width = Math.round(W * dpr); cv.height = Math.round(H * dpr);
-    var ctx = cv.getContext("2d");
-    if (!ctx) { stopShow(); return; }
-    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-
-    // 数字のあたりから吹き上がる
-    var r = el.big.getBoundingClientRect();
-    var cx = r.left + r.width / 2, cy = r.top + r.height / 2;
-    if (!r.width) { cx = W / 2; cy = H * 0.34; }
-
-    var COL = ["#ffd60a", "#ffffff", "#00e5ff", "#ff2bd6", "#ff7a18"];
-    var ps = [];
-    for (var i = 0; i < N; i++) {
-      var a = (Math.PI * 2 * i) / N + Math.random() * 0.5;
-      var sp = 3.2 + Math.random() * 6.5;
-      var kind = i % 3;                            // 0=紙吹雪 1=星 2=スパーク
-      ps.push({
-        x: cx, y: cy,
-        vx: Math.cos(a) * sp, vy: Math.sin(a) * sp - 2.4,
-        w: 4 + Math.random() * 6, h: 7 + Math.random() * 9,
-        rot: Math.random() * Math.PI, vr: (Math.random() - 0.5) * 0.4,
-        c: COL[i % COL.length], k: kind
-      });
-    }
-
-    function clearAll() {
-      ctx.save(); ctx.setTransform(1, 0, 0, 1, 0, 0);
-      ctx.clearRect(0, 0, cv.width, cv.height); ctx.restore();
-    }
-    function star(x, y, rad) {
-      ctx.beginPath();
-      for (var j = 0; j < 5; j++) {
-        var ang = (Math.PI * 2 * j) / 5 - Math.PI / 2;
-        ctx.lineTo(x + Math.cos(ang) * rad, y + Math.sin(ang) * rad);
-        ctx.lineTo(x + Math.cos(ang + Math.PI / 5) * rad * .45, y + Math.sin(ang + Math.PI / 5) * rad * .45);
-      }
-      ctx.closePath(); ctx.fill();
-    }
-
-    // フレーム落ちしても実時間で必ず消える保険
-    fxKill = setTimeout(function () {
-      if (fxRaf) { cancelAnimationFrame(fxRaf); fxRaf = null; }
-      if (cv.parentNode) cv.parentNode.removeChild(cv);
-      if (fxCanvas === cv) fxCanvas = null;
-    }, FX_MS + 120);
-
-    var t0 = Date.now(), prev = t0;
-    (function frame() {
-      var now = Date.now(), t = now - t0;
-      var dt = Math.min((now - prev) / 16.67, 3);   // 経過時間で進める（コマ落ちに強い）
-      prev = now;
-      if (t >= FX_MS) {
-        if (cv.parentNode) cv.parentNode.removeChild(cv);
-        if (fxCanvas === cv) fxCanvas = null;
-        fxRaf = null;
-        return;
-      }
-      clearAll();
-      var fade = Math.max(0, 1 - t / FX_MS);
-      ctx.globalCompositeOperation = "lighter";     // 重なるほど光る
-      for (var i = 0; i < ps.length; i++) {
-        var p = ps[i];
-        p.x += p.vx * dt; p.y += p.vy * dt; p.vy += 0.17 * dt; p.vx *= Math.pow(0.99, dt);
-        p.rot += p.vr * dt;
-        ctx.fillStyle = p.c; ctx.strokeStyle = p.c;
-        if (p.k === 0) {
-          ctx.save(); ctx.translate(p.x, p.y); ctx.rotate(p.rot);
-          ctx.globalAlpha = fade * .38;                       // にじみ（グローの代わり）
-          ctx.fillRect(-p.w * .95, -p.h * .8, p.w * 1.9, p.h * 1.6);
-          ctx.globalAlpha = fade;                             // 芯
-          ctx.fillRect(-p.w / 2, -p.h / 2, p.w, p.h);
-          ctx.restore();
-        } else if (p.k === 1) {
-          ctx.globalAlpha = fade * .38; star(p.x, p.y, p.w * 1.7);
-          ctx.globalAlpha = fade; star(p.x, p.y, p.w * .9);
-        } else {
-          ctx.globalAlpha = fade * .4; ctx.lineWidth = 6; ctx.beginPath();
-          ctx.moveTo(p.x, p.y); ctx.lineTo(p.x - p.vx * 2.4, p.y - p.vy * 2.4); ctx.stroke();
-          ctx.globalAlpha = fade; ctx.lineWidth = 2.2; ctx.beginPath();
-          ctx.moveTo(p.x, p.y); ctx.lineTo(p.x - p.vx * 2.4, p.y - p.vy * 2.4); ctx.stroke();
-        }
-      }
-      ctx.globalAlpha = 1;
-      ctx.globalCompositeOperation = "source-over";
-      fxRaf = requestAnimationFrame(frame);
-    })();
+    TB.showFx({
+      big: el.big, flash: el.flash, neongrid: el.grid2,
+      shake: el.g1, shock: el.shock, logo: el.logo,
+      count: 120,
+      origin: function () { return TB.centerOf(el.big); }
+    });
   }
 
   /** 受け取った履歴を反映する。増えた時だけ演出する（取消や初回は出さない） */

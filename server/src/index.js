@@ -161,17 +161,16 @@ export class BingoGame {
     return json(publicView(game), 200, { ETag: '"' + game.version + '"' });
   }
 
-  /* --- POST reset {pin, title?}：初回はここで PIN（SHA-256）を登録する --- */
+  /* --- POST reset {pin, title?}：ここで PIN（SHA-256）を登録し直す ---
+     PIN は v07 で内部固定になった（宴会用途では使わない）。実質のガードは URL の秘匿。
+     古い PIN との一致は求めない＝別の PIN で作られた古いゲームがあっても、
+     ホストが「新しいゲーム」を押せば必ず取り戻せる（当日に詰まらないことを優先）。 */
   async postReset(gameId, body) {
     const pin = String(body.pin == null ? "" : body.pin);
     if (!/^[0-9]{4}$/.test(pin)) return json({ ok: false, error: "PIN は 4 桁の数字です" }, 400);
 
     const now = new Date().toISOString();
     const old = await this.load();
-    if (old && old.pin_hash) {
-      const auth = await checkPin(old, pin);
-      if (auth) return auth;
-    }
 
     const game = {
       game_id: gameId,

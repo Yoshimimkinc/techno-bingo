@@ -79,7 +79,10 @@ check((await call("GET", G(), null, { "If-None-Match": '"0"' })).status === 200,
 /* --- PIN --- */
 check((await call("POST", G("/draw"), { pin: "9999", seq: 1, number: 5 })).status === 401, "PIN 違いは 401");
 check((await call("POST", G("/undo"), { pin: "9999" })).status === 401, "undo も PIN で守る");
-check((await call("POST", G("/reset"), { pin: "9999" })).status === 401, "既存ゲームの reset も PIN が要る");
+check((await call("POST", G("/reset"), { pin: "9999" })).status === 200, "reset は別の PIN でも通る（v07・鍵は内部固定／URL 秘匿がガード）");
+await call("POST", G("/reset"), { pin: "1234" });   // 以降のテストのため元の PIN に戻す
+await call("POST", G("/draw"), { pin: "1234", seq: 1, number: 42 });
+await call("POST", G("/undo"), { pin: "1234" });
 
 /* --- draw --- */
 r = await call("POST", G("/draw"), { pin: "1234", seq: 1, number: 42 });

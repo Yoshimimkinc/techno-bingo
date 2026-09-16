@@ -14,16 +14,9 @@
 <!-- ===== H0 スタート ===== -->
 <section id="h0" class="screen on">
   <div class="start">
-    <h1 class="tb-hero">
-      <picture>
-        <source type="image/webp" srcset="./img/hero-720.webp 720w, ./img/hero.webp 1047w" sizes="(max-width:760px) 100vw, 720px">
-        <img src="./img/hero.jpg" alt="テクノ⚡ビンゴ" width="1047" height="650" decoding="async">
-      </picture>
-    </h1>
+    <h1 class="tb-logo big"><img src="./logo.svg" alt="テクノ⚡ビンゴ" width="1168" height="378" decoding="async"></h1>
     <h2>（ホスト側）進行役のスマホ＝ビンゴ機</h2>
-    <p class="note">4桁の数字を決めて入れてください。この端末で引いた番号が、参加者のスマホに出ます。</p>
-    <input id="pin" class="pin" type="text" inputmode="numeric" pattern="[0-9]*" maxlength="4"
-           autocomplete="off" placeholder="0000" aria-label="PIN 4桁">
+    <p class="note">この端末で引いた番号が、参加者のスマホに出ます。</p>
     <button id="btn-start" class="btn btn-primary">はじめる</button>
     <p class="note" id="h0-note"></p>
   </div>
@@ -36,13 +29,9 @@
     <span class="spacer"></span>
     <button id="btn-menu" class="iconbtn" aria-label="メニュー">⋯</button>
   </div>
-  <h1 class="tb-logo">
-    <picture>
-      <source type="image/webp" srcset="./img/logo-720.webp 720w, ./img/logo.webp 952w" sizes="(max-width:560px) 74vw, 520px">
-      <img src="./img/logo.jpg" alt="テクノ⚡ビンゴ" width="952" height="504" decoding="async">
-    </picture>
-  </h1>
+  <h1 class="tb-logo"><img src="./logo.svg" alt="テクノ⚡ビンゴ" width="1168" height="378" decoding="async"></h1>
   <div class="bignum-wrap">
+    <div class="shock" id="shock" aria-hidden="true"><i></i><i></i><i></i></div>
     <div id="bignum" class="bignum">--</div>
     <div id="bigletter" class="bigletter"></div>
     <div id="bigsub" class="bigsub">残り 75</div>
@@ -90,6 +79,9 @@
   </div>
 </div>
 
+<div id="neongrid" class="neongrid" aria-hidden="true"></div>
+<div id="flash" class="flash" aria-hidden="true"><i class="f0"></i><i class="f1"></i><i class="f2"></i><i class="f3"></i></div>
+
 <div id="toast" class="toast"></div>
 
 <script src="./app.js"></script>
@@ -111,13 +103,15 @@
   function last() { return S.draws.length ? S.draws[S.draws.length - 1] : null; }
 
   var el = {
-    h0: TB.qs("#h0"), h1: TB.qs("#h1"), pin: TB.qs("#pin"), note: TB.qs("#h0-note"),
+    h0: TB.qs("#h0"), h1: TB.qs("#h1"), note: TB.qs("#h0-note"),
     big: TB.qs("#bignum"), letter: TB.qs("#bigletter"), sub: TB.qs("#bigsub"),
     chips: TB.qs("#chips"), draw: TB.qs("#btn-draw"),
     board: TB.qs("#board"), rest: TB.qs("#board-rest"),
+    flash: TB.qs("#flash"), grid2: TB.qs("#neongrid"),
+    shock: TB.qs("#shock"), logo: TB.qs(".tb-logo"),
     dot: TB.qs("#dot"), status: TB.qs("#status-text"), toast: TB.qs("#toast")
   };
-  var busy = false, flushing = false, pinBad = false;
+  var busy = false, flushing = false, drawToken = 0;
 
   /* ---------- プロジェクター表示（横向き・大画面。手動トグルが優先） ---------- */
   var PKEY = "tb.projector";
@@ -141,7 +135,6 @@
 
   function renderStatus() {
     var n = S.outbox.length;
-    if (pinBad) { el.dot.className = "dot off"; el.status.textContent = "PIN 不一致（この端末では進めます）"; return; }
     if (!TB.apiEnabled) { el.dot.className = "dot wait"; el.status.textContent = "単独モード（この端末だけ）"; return; }
     if (n > 0) { el.dot.className = "dot wait"; el.status.textContent = "未送信 " + n + " 件"; return; }
     el.dot.className = "dot"; el.status.textContent = "オンライン";
@@ -193,7 +186,7 @@
   function queue(op) { S.outbox.push(op); save(); renderStatus(); flush(); }
 
   function flush() {
-    if (flushing || pinBad || !TB.apiEnabled || S.outbox.length === 0) return;
+    if (flushing || !TB.apiEnabled || S.outbox.length === 0) return;
     flushing = true;
     var head = S.outbox[0], p, n = 1;
     if (head.op === "reset") {
@@ -216,13 +209,12 @@
         if (S.outbox.length) flush();
       } else if (r.offline) {
         renderStatus();                       // 次のタイマーで再試行
-      } else if (r.status === 401) {
-        pinBad = true; renderStatus();
-        toast("PIN がサーバと違います。参加者の画面は更新されません。");
       } else if (r.status === 409) {
         reconcile();
-      } else if (r.status === 404) {
-        rebuildOnServer();                    // サーバ側にゲームが無い＝作り直して全部送る
+      } else if (r.status === 401 || r.status === 404) {
+        // 別の鍵で作られた古いゲームが残っている／そもそも無い
+        // → 作り直して全部送り直す（当日に止まらないことを優先）
+        rebuildOnServer();
       } else {
         S.outbox.splice(0, n); save(); renderStatus();
         toast("送信できませんでした（この端末の進行は続きます）");
@@ -274,9 +266,8 @@
         el.big.classList.remove("spin");
         TB.fitBig(el.big, String(finalNum), mode);
         el.letter.textContent = TB.letterOf(finalNum);
-        el.big.classList.remove("pop"); void el.big.offsetWidth; el.big.classList.add("pop");
-        try { if (navigator.vibrate) navigator.vibrate([25, 45, 90]); } catch (x) { }
         done();
+        celebrate();                               // ★参加者画面と同じド派手演出
         return;
       }
       var v = pool.length ? pool[Math.floor(Math.random() * pool.length)] : finalNum;
@@ -285,17 +276,46 @@
     })();
   }
 
+  /* ---------- 確定の演出（app.js の共通エンジンを呼ぶ・v07） ---------- */
+  function celebrate() {
+    var proj = document.body.classList.contains("projector");
+    TB.showFx({
+      big: el.big, flash: el.flash, neongrid: el.grid2,
+      // プロジェクターでは盤面を揺らさない（読めなくなるため）。左の欄だけ揺らす
+      shake: proj ? TB.qs(".bignum-wrap") : el.h1,
+      shock: el.shock, logo: el.logo,
+      count: proj ? 160 : 120,                     // 大画面は粒子を増やしてよい
+      area: proj ? function () {
+        // 紙吹雪は左のでか文字側だけ（右の盤面の可読性を守る）
+        return { x: 0, y: 0, w: Math.round(window.innerWidth * 0.4), h: window.innerHeight };
+      } : null,
+      origin: function () { return TB.centerOf(el.big); },
+      // 演出の終わりで必ず操作可能に戻す（時間基準）。
+      // 自分の回の演出が終わった時だけ戻す（次の回の演出に割り込まれても取り違えない）
+      onEnd: (function (my) { return function () { if (my === drawToken) { busy = false; renderMain(); } }; })(drawToken)
+    });
+    // プロジェクターの盤面は、確定したマスだけが 1.6 秒ネオンで光ってから塗りに落ち着く
+    if (proj && !TB.reducedMotion()) {
+      var cell = el.board.querySelector(".bcell.latest");
+      if (cell) { cell.classList.remove("neon"); void cell.offsetWidth; cell.classList.add("neon"); }
+    }
+    // 履歴チップの先頭（最新）も滑り込み＋縁光り
+    if (!TB.reducedMotion()) {
+      var chip = el.chips.querySelector(".chip.latest");
+      if (chip) { chip.className += " slidein neon"; }
+    }
+  }
+
   /* ---------- 操作 ---------- */
   function doDraw() {
     if (busy) return;
     var n = TB.drawNext(numbers(), MAX);
     if (n === null) { renderMain(); return; }
-    busy = true; el.draw.disabled = true; el.draw.textContent = "…";
+    busy = true; drawToken++; el.draw.disabled = true; el.draw.textContent = "…";
     roulette(n, function () {
       var d = { seq: S.draws.length + 1, number: n, at: TB.nowIso() };
       S.draws.push(d); save();                 // ★先に手元へ確定（通信の成否に関係なく進む）
-      busy = false;
-      renderMain();
+      renderMain();                            // busy はまだ true ＝演出中はボタンも Space も無効
       queue({ op: "draw", seq: d.seq, number: d.number, at: d.at });
     });
   }
@@ -403,12 +423,12 @@
     if (e.ctrlKey || e.altKey || e.metaKey) return;
 
     var tag = document.activeElement ? document.activeElement.tagName : "";
-    if (/^(INPUT|TEXTAREA|SELECT)$/.test(tag)) {
-      // H0 の PIN 欄で Enter ＝「はじめる」
-      if (k === "Enter" && el.h0.classList.contains("on")) { e.preventDefault(); TB.qs("#btn-start").click(); }
+    if (/^(INPUT|TEXTAREA|SELECT)$/.test(tag)) return;
+    if (anySheetOpen()) return;                   // 確認シートが開いている間は引かない
+    if (el.h0.classList.contains("on")) {         // スタート画面では Enter ＝「はじめる」
+      if (k === "Enter") { e.preventDefault(); TB.qs("#btn-start").click(); }
       return;
     }
-    if (anySheetOpen()) return;                   // 確認シートが開いている間は引かない
     if (!el.h1.classList.contains("on")) return;
     e.preventDefault();                           // ボタンの既定動作と二重に発火させない
     doDraw();                                     // 演出中は doDraw 側の busy で弾かれる
@@ -416,9 +436,7 @@
 
   /* ---------- 開始 ---------- */
   TB.qs("#btn-start").onclick = function () {
-    var v = (el.pin.value || "").replace(/[^0-9]/g, "");
-    if (v.length !== 4) { el.note.textContent = "4 桁の数字を入れてください。"; el.pin.focus(); return; }
-    S.pin = v; save();
+    S.pin = TB.PIN; save();                  // PIN は内部固定（画面には出さない）
     el.h0.classList.remove("on"); el.h1.classList.add("on");
     renderMain();
     start();
@@ -450,8 +468,8 @@
     }
   });
 
-  // 途中再開（前回の続きがあれば PIN を出しておく）
-  if (S.pin) { el.pin.value = S.pin; }
+  // 途中再開
+  S.pin = TB.PIN;
   if (S.draws.length) {
     el.note.textContent = "前回の続き（" + S.draws.length + " 件）から再開できます。";
   }
