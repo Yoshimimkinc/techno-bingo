@@ -2,9 +2,9 @@
 <html lang="ja">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
 <meta name="theme-color" content="#0f172a">
-<title>テクノ☆ビンゴ</title>
+<title>テクノ⚡ビンゴ</title>
 <link rel="icon" href="data:image/svg+xml,<svg%20xmlns=%22http://www.w3.org/2000/svg%22%20viewBox=%220%200%2032%2032%22><circle%20cx=%2216%22%20cy=%2216%22%20r=%2215%22%20fill=%22%23ffd60a%22/><circle%20cx=%2216%22%20cy=%2216%22%20r=%228%22%20fill=%22%230b0f1a%22/></svg>">
 <link rel="stylesheet" href="./styles.css">
 </head>
@@ -13,7 +13,12 @@
 <!-- ===== G0 スタート ===== -->
 <section id="g0" class="screen on">
   <div class="start">
-    <h1 class="tb-title big">テクノ☆ビンゴ</h1>
+    <h1 class="tb-hero">
+      <picture>
+        <source type="image/webp" srcset="./img/hero-720.webp 720w, ./img/hero.webp 1047w" sizes="(max-width:760px) 100vw, 720px">
+        <img src="./img/hero.jpg" alt="テクノ⚡ビンゴ" width="1047" height="650" decoding="async">
+      </picture>
+    </h1>
     <h2>りれきの確認</h2>
     <p class="note">出た番号がこの画面に出ます。押す物はありません。手元のビンゴカードと見くらべてください。</p>
     <button id="btn-see" class="btn btn-primary">みる</button>
@@ -27,7 +32,12 @@
     <span class="spacer"></span>
     <span class="status" id="count">0 / 75</span>
   </div>
-  <h1 class="tb-title" id="glogo">テクノ☆ビンゴ</h1>
+  <h1 class="tb-logo" id="glogo">
+    <picture>
+      <source type="image/webp" srcset="./img/logo-720.webp 720w, ./img/logo.webp 952w" sizes="(max-width:520px) 80vw, 420px">
+      <img src="./img/logo.jpg" alt="テクノ⚡ビンゴ" width="952" height="504" decoding="async">
+    </picture>
+  </h1>
   <div class="bignum-wrap" style="flex:0 0 auto;padding:2px 0 2px;">
     <div class="shock" id="shock" aria-hidden="true"><i></i><i></i><i></i></div>
     <div id="bignum" class="bignum">--</div>
@@ -44,6 +54,7 @@
 <script>
 (function () {
   "use strict";
+  TB.guardGestures();                 // ダブルタップ／ピンチ拡大を止める
   var GID = TB.gameId();
   var MAX = TB.MAX_NUMBER;
   var el = {
@@ -313,6 +324,8 @@
     keepAwake();
     if (!timer) timer = setInterval(poll, 1000);     // 1秒ごと（304中心なので軽い）
   };
+
+  TB.bindDrum(el.grid, ".cell");        // 履歴カードを押したらドラムが鳴る
 
   document.addEventListener("visibilitychange", function () {
     if (!document.hidden) { poll(); if (!wakeLock) keepAwake(); }   // 前面に戻った瞬間に追いつく

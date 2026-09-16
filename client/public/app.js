@@ -1,4 +1,4 @@
-/* テクノのビンゴ — 共通部（番号プール・保存・APIクライアント・QR生成）
+/* テクノ⚡ビンゴ — 共通部（番号プール・保存・APIクライアント・QR生成）
  *
  * 参照: docs/01_PRD.md §3 / docs/05_ARCHITECTURE_DESIGN.md（API・単独モード・ER図）
  * 方針: ビルド無し・素のJS。ホスト端末が番号を決め、サーバは検証と配信だけ。
@@ -15,7 +15,7 @@
    * ==========================================================*/
   TB.MAX_NUMBER = 75;
   TB.DEFAULT_GAME_ID = "techno-20260930";
-  TB.TITLE = "テクノ☆ビンゴ";
+  TB.TITLE = "テクノ⚡ビンゴ";
   TB.LETTERS = ["B", "I", "N", "G", "O"];
 
   /* ============================================================
@@ -192,7 +192,7 @@
     if (mode === "projector") {
       t = len <= 1 ? [24, 52] : len === 2 ? [28, 50] : len <= 4 ? [14, 26] : [8, 16];
     } else {
-      t = len <= 1 ? [62, 42] : len === 2 ? [75, 42] : len <= 4 ? [34, 20] : [20, 20];
+      t = len <= 1 ? [62, 32] : len === 2 ? [75, 32] : len <= 4 ? [34, 18] : [20, 16];
     }
     el.style.fontSize = "min(" + t[0] + "vw, " + t[1] + "vh)";
   };
@@ -544,9 +544,116 @@
    * ==========================================================*/
   TB.guardGestures = function () {
     try {
+      // ピンチ拡大（iOS Safari）
       document.addEventListener("gesturestart", function (e) { e.preventDefault(); });
+      document.addEventListener("gesturechange", function (e) { e.preventDefault(); });
+      // ダブルクリック拡大
       document.addEventListener("dblclick", function (e) { e.preventDefault(); }, { passive: false });
+      // iOS の古い挙動：300ms 以内の 2 回目のタップを止める（拡大だけを殺し、スクロールは残す）
+      var lastTap = 0;
+      document.addEventListener("touchend", function (e) {
+        var now = Date.now();
+        if (now - lastTap <= 300 && e.touches.length === 0) e.preventDefault();
+        lastTap = now;
+      }, { passive: false });
+      // 2 本指以上のタッチ（ピンチ）そのものを止める
+      document.addEventListener("touchmove", function (e) {
+        if (e.touches && e.touches.length > 1) e.preventDefault();
+      }, { passive: false });
     } catch (e) { /* 続行 */ }
+  };
+
+
+  /* ============================================================
+   * 8. ドラム（Web Audio で合成・音源ファイル無し）
+   *    履歴カード／チップを押した時に鳴らす。押した本人だけに聞こえる音なので
+   *    トグルは付けない（既定 ON）。※iPhone はマナーモードだと鳴らない。
+   *    AudioContext は最初のタップで作る（自動再生制限に掛からない）。
+   *    連打しても詰まらないよう、毎回ノードを作って鳴り終わりに捨てる。
+   * ==========================================================*/
+  var actx = null, noiseBuf = null;
+
+  function audio() {
+    try {
+      if (!actx) {
+        var C = root.AudioContext || root.webkitAudioContext;
+        if (!C) return null;
+        actx = new C();
+      }
+      if (actx.state === "suspended" && actx.resume) actx.resume();
+      return actx;
+    } catch (e) { return null; }
+  }
+
+  function noise(ctx) {
+    if (noiseBuf) return noiseBuf;
+    var n = Math.floor(ctx.sampleRate * 0.2);
+    noiseBuf = ctx.createBuffer(1, n, ctx.sampleRate);
+    var d = noiseBuf.getChannelData(0);
+    for (var i = 0; i < n; i++) d[i] = Math.random() * 2 - 1;
+    return noiseBuf;
+  }
+
+  /** ドン（キック）＋タン（スネア）を同時に鳴らす。全部で 0.2 秒ほど。 */
+  TB.drum = function () {
+    var ctx = audio();
+    if (!ctx) return;
+    // 止まっていたら再開してから鳴らす（最初の 1 回が無音にならないように）
+    if (ctx.state === "suspended" && ctx.resume) {
+      try { ctx.resume().then(function () { fire(ctx); }, function () { fire(ctx); }); return; }
+      catch (e) { /* 下でそのまま鳴らす */ }
+    }
+    fire(ctx);
+  };
+
+  function fire(ctx) {
+    try {
+      var t = ctx.currentTime;
+
+      // キック：150Hz → 40Hz へ 0.15 秒で下げる。波形は square 寄りでファミコン感を出す
+      var osc = ctx.createOscillator(), og = ctx.createGain();
+      osc.type = "triangle";
+      osc.frequency.setValueAtTime(150, t);
+      osc.frequency.exponentialRampToValueAtTime(40, t + 0.15);
+      og.gain.setValueAtTime(0.38, t);
+      og.gain.exponentialRampToValueAtTime(0.001, t + 0.18);
+      osc.connect(og).connect(ctx.destination);
+      osc.start(t); osc.stop(t + 0.2);
+
+      // スネア風：ホワイトノイズをバンドパスして 0.12 秒で切る
+      var src = ctx.createBufferSource(), bp = ctx.createBiquadFilter(), ng = ctx.createGain();
+      src.buffer = noise(ctx);
+      bp.type = "bandpass"; bp.frequency.value = 1800; bp.Q.value = 0.8;
+      ng.gain.setValueAtTime(0.22, t);
+      ng.gain.exponentialRampToValueAtTime(0.001, t + 0.12);
+      src.connect(bp).connect(ng).connect(ctx.destination);
+      src.start(t); src.stop(t + 0.14);
+
+      // 鳴り終わったら捨てる（連打しても溜まらない）
+      var kill = function () { try { osc.disconnect(); og.disconnect(); src.disconnect(); bp.disconnect(); ng.disconnect(); } catch (e) { } };
+      osc.onended = kill; src.onended = kill;
+    } catch (e) { /* 鳴らなくても画面は進む */ }
+  }
+
+  /** 履歴カード／チップのタップ：ドラム＋一瞬光る＋軽いバイブ */
+  TB.hitFeedback = function (el2) {
+    TB.drum();
+    if (el2) {
+      el2.classList.remove("tap");
+      void el2.offsetWidth;
+      el2.classList.add("tap");
+      setTimeout(function () { el2.classList.remove("tap"); }, 300);
+    }
+    try { if (navigator.vibrate) navigator.vibrate(30); } catch (e) { }
+  };
+
+  /** 親要素に 1 つだけリスナーを付けて、中のカードのタップを拾う（委譲） */
+  TB.bindDrum = function (container, selector) {
+    if (!container) return;
+    container.addEventListener("click", function (e) {
+      var t = e.target && e.target.closest ? e.target.closest(selector) : null;
+      if (t && container.contains(t)) TB.hitFeedback(t);
+    });
   };
 
   if (typeof module !== "undefined" && module.exports) module.exports = TB;

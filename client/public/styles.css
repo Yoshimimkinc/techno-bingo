@@ -1,4 +1,4 @@
-/* テクノのビンゴ — 共通スタイル（ホスト／参加者）
+/* テクノ⚡ビンゴ — 共通スタイル（ホスト／参加者）
    区分: 🟢緑
    前提: iPhone Safari / Android Chrome の縦持ち。遠目でも読めること。
    規約: フォント下限 モバイル16px・タッチターゲット 44px 以上・角丸 12px・safe-area 対応 */
@@ -8,11 +8,11 @@
      ①背景 --c-bg ／ ②出た番号 --c-hit（塗り）／ ③最新 --c-latest（塗り）
      塗りの上の文字は --c-on-hit（白）／--c-on-latest（濃紺）。未出は --c-dim の文字だけ。
      見え方を変えたいときは、まずこの 6 つだけを触る。他の色は足さない。 */
-  --c-bg: #0b0f1a;        /* ①背景（濃紺。会場を暗くしても沈まない） */
+  --c-bg: #0b0620;        /* ①背景（ロゴ画像に合わせた紺〜紫。会場を暗くしても沈まない） */
   --c-hit: #2563eb;       /* ②出た番号＝濃い塗り。文字は白 */
   --c-latest: #ffd60a;    /* ③最新の 1 件だけ（黄）。でか文字もこの色で統一 */
   --c-on-hit: #ffffff;    /* 出た番号の文字（白） */
-  --c-on-latest: #0b0f1a; /* 最新の文字（黄の上なので濃紺） */
+  --c-on-latest: #0b0620; /* 最新の文字（黄の上なので濃紺） */
 
   /* 未出のマス＝背景とほぼ同化させる（管理者指示 2026-09-16 10:44）。
      「マスの位置が分かる程度で、数字は読めなくてよい」。
@@ -23,8 +23,8 @@
 
   /* ===== 参加者画面だけの装い（v03）＝ガラス風カード =====
      ホスト画面（プロジェクター表示・盤面）には一切かけない。 */
-  --guest-bg-1: #0f172a;             /* 背景グラデの上 */
-  --guest-bg-2: #1e293b;             /* 背景グラデの下（ここが一番明るい＝文字の比はここで測る） */
+  --guest-bg-1: #0b0620;             /* 背景グラデの上（ロゴ画像と同系） */
+  --guest-bg-2: #2a1150;             /* 背景グラデの下（ここが一番明るい＝文字の比はここで測る） */
   --glass-bg: rgba(255, 255, 255, 0.14);   /* ガラスの面 */
   --glass-line: rgba(255, 255, 255, 0.26); /* ガラスの縁 */
   --glass-blur: 12px;
@@ -67,30 +67,32 @@ body { display: flex; flex-direction: column; }
 .screen { display: none; flex: 1 1 auto; min-height: 0; flex-direction: column; }
 .screen.on { display: flex; }
 
-/* ---------- 表題「テクノ☆ビンゴ」 ----------
-   見出しはこの 1 クラスだけ。ロゴ PNG が届いたら、ここを <img> に差し替えれば全画面に効く。
-   色＝オレンジ→赤のグラデーション＋ネオングロー。 */
-.tb-title {
-  margin: 0; flex: 0 0 auto; text-align: center;
-  font-family: var(--ui-font); font-weight: 900;
-  font-size: min(6.4vw, 30px); line-height: 1.15;
-  letter-spacing: .04em;
-  padding: 6px 10px 2px;
-  color: #ff7a18;                       /* グラデが使えない環境でも必ず見える単色 */
+/* ---------- ロゴ（支給画像・client/public/img/） ----------
+   v06 で自前の文字組みをやめ、管理者から届いたピクセルアートのロゴ画像に差し替えた。
+   hero＝CRT の画面まるごと（スタート画面の主役）／logo＝タイトル文字＋宇宙船の帯。
+   画像が読めなかった時は alt の「テクノ⚡ビンゴ」が見出しとして出る。 */
+.tb-hero, .tb-logo { margin: 0 auto; flex: 0 0 auto; }
+.tb-hero img, .tb-logo img,
+.tb-hero picture, .tb-logo picture {
+  display: block; width: 100%; height: auto;
 }
-.tb-title.big { font-size: min(10vw, 46px); padding: 2px 10px 6px; }
-@supports ((-webkit-background-clip: text) or (background-clip: text)) {
-  .tb-title {
-    background-image: linear-gradient(180deg, #ffb347 0%, #ff7a18 52%, #ff5a1f 100%);
-    -webkit-background-clip: text; background-clip: text;
-    color: transparent; -webkit-text-fill-color: transparent;
-    filter: drop-shadow(0 0 5px rgba(255, 122, 24, .8)) drop-shadow(0 0 16px rgba(255, 90, 31, .55));
-  }
+.tb-hero img, .tb-logo img {
+  /* 画像が出ない時の代替テキストを読めるようにしておく */
+  color: #ffb347; font-family: var(--ui-font); font-weight: 900; font-size: 22px;
 }
+/* 幅だけでなく「使える高さ」でも頭打ちにする（横持ち・低い画面でも他の要素を押し出さない）。
+   hero の縦横比 1047:650 ＝ 1.611／logo は 952:504 ＝ 1.889。高さ上限 × 比率 で幅を決める。 */
+.tb-hero { width: min(100%, 720px, 64vh); }
+.tb-hero img {
+  border-radius: 16px;                 /* 元画像のブラウン管の丸角を隠す */
+  box-shadow: 0 12px 44px rgba(0, 0, 0, .6), 0 0 0 1px rgba(255, 255, 255, .06);
+}
+.tb-logo { width: min(74%, 520px, 30vh); padding: 4px 0 2px; }
+.tb-logo img { border-radius: 10px; }
 
 /* ---------- でか文字 ---------- */
 .bignum-wrap {
-  flex: 1 1 auto; min-height: 0;
+  flex: 1 1 auto; min-height: 0; overflow: hidden;
   display: flex; flex-direction: column; align-items: center; justify-content: center;
   position: relative;
 }
@@ -130,6 +132,7 @@ body { display: flex; flex-direction: column; }
   padding: 10px 12px;
   overflow-x: auto; overflow-y: hidden;
   -webkit-overflow-scrolling: touch;
+  touch-action: pan-x;              /* 横スクロールは残し、拡大だけ殺す */
   scrollbar-width: none;
   background: var(--panel);
   border-top: 1px solid var(--line);
@@ -168,6 +171,7 @@ body { display: flex; flex-direction: column; }
   font-family: var(--ui-font); font-size: 18px; font-weight: 700;
   cursor: pointer;
 }
+.btn { touch-action: manipulation; }
 .btn:active { transform: translateY(1px); }
 .btn[disabled] { opacity: .45; }
 .btn-primary { background: var(--num); color: #0b0f1a; }
@@ -200,6 +204,7 @@ body { display: flex; flex-direction: column; }
 .dot.wait { background: #ffb703; }
 .spacer { flex: 1 1 auto; }
 .iconbtn {
+  touch-action: manipulation;
   width: 44px; height: 44px; border: 0; border-radius: var(--radius);
   background: transparent; color: var(--fg); font-size: 22px; cursor: pointer;
 }
@@ -208,7 +213,7 @@ body { display: flex; flex-direction: column; }
 .start {
   flex: 1 1 auto;
   display: flex; flex-direction: column; align-items: center; justify-content: center;
-  gap: 18px; padding: 24px 20px calc(24px + env(safe-area-inset-bottom));
+  gap: 14px; padding: 16px 20px calc(16px + env(safe-area-inset-bottom));
   text-align: center;
 }
 .start h1 { margin: 0; font-size: 30px; letter-spacing: .02em; }
@@ -227,6 +232,7 @@ body { display: flex; flex-direction: column; }
 .grid {
   flex: 1 1 auto; min-height: 0; overflow-y: auto;
   -webkit-overflow-scrolling: touch;
+  touch-action: pan-y;              /* 縦スクロールは残し、拡大だけ殺す */
   display: grid; grid-template-columns: repeat(6, 1fr);
   gap: 6px; padding: 10px 10px calc(16px + env(safe-area-inset-bottom));
   align-content: start;
@@ -272,7 +278,7 @@ body.projector #h1.screen.on {
   height: 100vh; min-height: 0;
 }
 body.projector .topbar { grid-area: bar; }
-body.projector .tb-title { grid-area: logo; }
+body.projector .tb-logo { grid-area: logo; width: min(260px, 22vh); margin: 0 0 0 10px; }
 body.projector .bignum-wrap { grid-area: num; min-height: 0; }
 body.projector .footer { grid-area: btn; }
 body.projector .chips { display: none; }          /* 盤面が履歴を兼ねる */
@@ -284,7 +290,7 @@ body.projector .board-wrap {
 body.projector .btn-draw { min-height: min(11vh, 110px); font-size: min(3.2vw, 44px); }
 body.projector .bigletter { font-size: min(5vw, 9vh); }
 body.projector .bigsub { font-size: min(1.5vw, 20px); }
-body.projector .tb-title { font-size: min(3.4vw, 46px); padding: 2px 10px; }
+
 
 .board {
   flex: 1 1 auto; min-height: 0;
@@ -344,7 +350,7 @@ body.guest {
 }
 
 /* 参加者画面 G1 の見出し（揺らす対象） */
-body.guest #glogo { font-size: min(5.6vw, 26px); padding: 2px 10px 0; }
+body.guest #glogo.tb-logo { width: min(80%, 420px, 26vh); padding: 2px 0 0; }
 
 /* ネオン 3 色（演出専用） */
 :root {
@@ -423,7 +429,7 @@ body.guest .cell.neon { animation: cellneon 1600ms ease-out 1 !important; }
   75% { transform: translate(-4px, -2px); }
   100% { transform: translate(0, 0); }
 }
-.tb-title.quake2 { animation: quake2 420ms ease-in-out; }
+.quake2 { animation: quake2 420ms ease-in-out; }
 @keyframes quake2 {
   0%, 100% { transform: translate(0, 0) rotate(0); }
   20% { transform: translate(-5px, 2px) rotate(-1.5deg); }
@@ -507,7 +513,7 @@ body.guest .bignum { position: relative; z-index: 2; }
 /* ---------- 動きを減らす設定：拡大と色だけ ---------- */
 @media (prefers-reduced-motion: reduce) {
   .flash, .fx, .neongrid, .shock { display: none !important; }
-  #g1.quake, .tb-title.quake2 { animation: none !important; }
+  #g1.quake, .quake2 { animation: none !important; }
   body.guest .cell.slidein, body.guest .cell.neon { animation: none !important; }
   .bignum.mega { animation: megaquiet 400ms ease-out; }
   @keyframes megaquiet {
@@ -515,6 +521,16 @@ body.guest .bignum { position: relative; z-index: 2; }
     100% { transform: scale(1); opacity: 1; color: var(--c-latest); }
   }
 }
+
+
+/* 押したカード／チップ／マスが一瞬ネオンで光る（ドラム音と同時・0.25 秒） */
+.cell.tap, .chip.tap, .bcell.tap { animation: tapflash 250ms ease-out; }
+@keyframes tapflash {
+  0%   { filter: brightness(2.1); box-shadow: 0 0 20px 6px var(--neon-cy), 0 0 34px 10px rgba(255, 43, 214, .6); }
+  60%  { filter: brightness(1.3); }
+  100% { filter: none; }
+}
+.cell, .chip, .bcell.hit { cursor: pointer; }
 
 /* ---------- シート（メニュー・確認・QR） ---------- */
 .sheet {

@@ -8,3 +8,6 @@ Thumbs.db
 # 公開しない（企画・設計メモ・開発規約は Dropbox 側のみ）
 docs/
 CLAUDE.md
+
+# ロゴの原本（Dropbox 側に置いておく。配信するのは client/public/img/ の切り出し済みだけ）
+/taitoru.jpg

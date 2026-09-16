@@ -1,4 +1,4 @@
-/* テクノ☆ビンゴ — /api の検算（Durable Object を偽物に差し替えて Worker を直接叩く）
+/* テクノ⚡ビンゴ — /api の検算（Durable Object を偽物に差し替えて Worker を直接叩く）
  *   docs/05_ARCHITECTURE_DESIGN.md の API 表どおりか、PIN・409・ETag/304・sync を確かめる。
  *   実行: node scripts/api_test.mjs   （Node 18 以上。Request/Response/crypto.subtle を使う）
  */

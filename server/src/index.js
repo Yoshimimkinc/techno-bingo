@@ -1,4 +1,4 @@
-/* テクノ☆ビンゴ — Cloudflare Worker（静的アセット配信＋/api）
+/* テクノ⚡ビンゴ — Cloudflare Worker（静的アセット配信＋/api）
  *
  * 正本: docs/05_ARCHITECTURE_DESIGN.md（API 表・ER 図・単独モード）
  * パターン: 共通技術台帳 T02 Workers共通実装パターン（W-1 ルーティング／W-5 エラー定型）
@@ -175,7 +175,7 @@ export class BingoGame {
 
     const game = {
       game_id: gameId,
-      title: typeof body.title === "string" && body.title ? body.title.slice(0, 40) : "テクノ☆ビンゴ",
+      title: typeof body.title === "string" && body.title ? body.title.slice(0, 40) : "テクノ⚡ビンゴ",
       status: "ready",
       max_number: MAX_NUMBER,
       pin_hash: await sha256(pin),

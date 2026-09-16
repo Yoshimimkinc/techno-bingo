@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# テクノのビンゴ — 検算・セルフテスト
+# テクノ⚡ビンゴ — 検算・セルフテスト
 #
 # 位置づけ: 共通技術台帳/01_開発サイクル標準.md のDEVCYCLE D3（テスト）で実行する。
 # 検算結果は docs/00_CHANGELOG.md の版履歴に「検算: n/n PASS」として記録する（省略不可）。
@@ -23,6 +23,10 @@ node scripts/api_test.mjs
 echo
 echo "=== 4. 配色（未出は背景と同化＝比1.3以下／出た・最新ははっきり） ==="
 node scripts/contrast_test.js
+
+echo
+echo "=== 5. 配布物（ロゴ画像の有無・サイズ・参照・表題の表記） ==="
+node scripts/assets_test.js
 
 echo
 echo "[test.sh] ALL PASS"
