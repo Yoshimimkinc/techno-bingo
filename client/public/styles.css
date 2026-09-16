@@ -101,7 +101,7 @@ body { display: flex; flex-direction: column; }
 /* 確定演出：一瞬白く光って大きくなり、0.3 秒で最新色に落ち着く */
 .bigletter {
   font-family: var(--num-font); font-weight: 700;
-  font-size: min(12vw, 7vh); color: var(--accent); letter-spacing: .1em;
+  font-size: min(22vw, 13vh); color: var(--accent); letter-spacing: .08em; font-weight: 900;  /* v07b 管理者「BINGO の文字だけ大きく」 */
   min-height: 1.2em;
 }
 .bigsub { color: var(--muted); font-size: 16px; }
@@ -286,7 +286,7 @@ body.projector .board-wrap {
   gap: min(1vh, 10px);
 }
 body.projector .btn-draw { min-height: min(11vh, 110px); font-size: min(3.2vw, 44px); }
-body.projector .bigletter { font-size: min(5vw, 9vh); }
+body.projector .bigletter { font-size: min(9vw, 15vh); }
 body.projector .bigsub { font-size: min(1.5vw, 20px); }
 
 
@@ -301,13 +301,13 @@ body.projector .bigsub { font-size: min(1.5vw, 20px); }
   display: flex; align-items: center; justify-content: center;
   border-radius: min(0.8vw, 12px);
   font-family: var(--num-font); font-weight: 700; font-variant-numeric: tabular-nums;
-  font-size: min(2.2vw, 8vh); line-height: 1;
+  font-size: min(2.2vw, 8vh); line-height: 1;  /* .blabel は下で拡大 */
   min-width: 0; overflow: hidden;
 }
 /* 行見出しは「表題と同じ色」（オレンジ→赤のグラデ文字）。塗らないので出たマスの青と混ざらない */
 .blabel {
-  width: min(4vw, 64px); background: transparent;
-  color: #ff7a18; font-weight: 900;
+  width: min(5vw, 80px); background: transparent;
+  color: #ff7a18; font-weight: 900; font-size: min(3.4vw, 10vh);  /* v07b */
 }
 @supports ((-webkit-background-clip: text) or (background-clip: text)) {
   .blabel {
