@@ -1,0 +1,10 @@
+{
+  "name": "techno-bingo",
+  "private": true,
+  "type": "module",
+  "description": "テクノのビンゴ — Cloudflare Worker（静的配信＋/api＋KV）。依存パッケージ無し・ビルド無し。",
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy"
+  }
+}

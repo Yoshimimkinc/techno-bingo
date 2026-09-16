@@ -1,0 +1,10 @@
+node_modules/
+.wrangler/
+.dev.vars
+*.log
+.DS_Store
+Thumbs.db
+
+# 公開しない（企画・設計メモ・開発規約は Dropbox 側のみ）
+docs/
+CLAUDE.md

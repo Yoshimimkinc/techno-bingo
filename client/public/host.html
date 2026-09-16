@@ -1,0 +1,451 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="robots" content="noindex, nofollow">
+<meta name="theme-color" content="#0b0f1a">
+<title>テクノのビンゴ（ホスト側）</title>
+<link rel="icon" href="data:image/svg+xml,<svg%20xmlns=%22http://www.w3.org/2000/svg%22%20viewBox=%220%200%2032%2032%22><circle%20cx=%2216%22%20cy=%2216%22%20r=%2215%22%20fill=%22%23ffd60a%22/><circle%20cx=%2216%22%20cy=%2216%22%20r=%228%22%20fill=%22%230b0f1a%22/></svg>">
+<link rel="stylesheet" href="./styles.css">
+</head>
+<body>
+
+<!-- ===== H0 スタート ===== -->
+<section id="h0" class="screen on">
+  <div class="start">
+    <div class="logo"><b>B</b><b>I</b><b>N</b><b>G</b><b>O</b><i>!!</i></div>
+    <h1>テクノのビンゴ（ホスト側）</h1>
+    <h2>進行役のスマホ＝ビンゴ機</h2>
+    <p class="note">4桁の数字を決めて入れてください。この端末で引いた番号が、参加者のスマホに出ます。</p>
+    <input id="pin" class="pin" type="text" inputmode="numeric" pattern="[0-9]*" maxlength="4"
+           autocomplete="off" placeholder="0000" aria-label="PIN 4桁">
+    <button id="btn-start" class="btn btn-primary">はじめる</button>
+    <p class="note" id="h0-note"></p>
+  </div>
+</section>
+
+<!-- ===== H1 操作 ===== -->
+<section id="h1" class="screen">
+  <div class="topbar">
+    <span class="status"><span id="dot" class="dot"></span><span id="status-text">単独モード</span></span>
+    <span class="spacer"></span>
+    <button id="btn-menu" class="iconbtn" aria-label="メニュー">⋯</button>
+  </div>
+  <div class="logo"><b>B</b><b>I</b><b>N</b><b>G</b><b>O</b><i>!!</i></div>
+  <div class="bignum-wrap">
+    <div id="bignum" class="bignum">--</div>
+    <div id="bigletter" class="bigletter"></div>
+    <div id="bigsub" class="bigsub">残り 75</div>
+  </div>
+  <div id="chips" class="chips"><span class="chips-empty">まだ1つも引いていません</span></div>
+  <!-- プロジェクター表示のときだけ出る 1〜75 の盤面（B/I/N/G/O × 15） -->
+  <div id="board-wrap" class="board-wrap">
+    <div id="board" class="board"></div>
+    <div id="board-rest" class="board-rest">あと 75 個</div>
+  </div>
+  <div class="footer">
+    <button id="btn-draw" class="btn btn-primary btn-draw">数字を引く!!</button>
+  </div>
+</section>
+
+<!-- ===== メニュー ===== -->
+<div id="sheet-menu" class="sheet">
+  <div class="sheet-in">
+    <div class="sheet-title">メニュー</div>
+    <button id="m-projector" class="btn">プロジェクター表示</button>
+    <button id="m-qr" class="btn">QR を見せる</button>
+    <button id="m-undo" class="btn">最後の 1 件を取り消す</button>
+    <button id="m-reset" class="btn btn-danger">新しいゲーム</button>
+    <button id="m-close" class="btn btn-ghost">閉じる</button>
+  </div>
+</div>
+
+<!-- ===== QR ===== -->
+<div id="sheet-qr" class="sheet">
+  <div class="sheet-in">
+    <div class="sheet-title">参加者にこの QR を見せてください</div>
+    <div class="qrbox"><canvas id="qr" width="280" height="280"></canvas></div>
+    <div id="qrurl" class="qrurl"></div>
+    <button id="qr-close" class="btn btn-ghost">閉じる</button>
+  </div>
+</div>
+
+<!-- ===== 確認（2段） ===== -->
+<div id="sheet-confirm" class="sheet">
+  <div class="sheet-in">
+    <div id="c-title" class="sheet-title"></div>
+    <div id="c-body" class="sheet-body"></div>
+    <button id="c-ok" class="btn btn-danger"></button>
+    <button id="c-cancel" class="btn btn-ghost">やめる</button>
+  </div>
+</div>
+
+<div id="toast" class="toast"></div>
+
+<script src="./app.js"></script>
+<script>
+(function () {
+  "use strict";
+  TB.guardGestures();
+
+  var GID = TB.gameId();
+  var KEY = "tb.host." + GID;
+  var MAX = TB.MAX_NUMBER;
+
+  /* ---------- 状態（localStorage に写しを持つ＝単独モード） ---------- */
+  var S = TB.store.get(KEY) || { gid: GID, pin: "", draws: [], outbox: [] };
+  if (!S.draws) S.draws = [];
+  if (!S.outbox) S.outbox = [];
+  function save() { TB.store.set(KEY, S); }
+  function numbers() { return S.draws.map(function (d) { return d.number; }); }
+  function last() { return S.draws.length ? S.draws[S.draws.length - 1] : null; }
+
+  var el = {
+    h0: TB.qs("#h0"), h1: TB.qs("#h1"), pin: TB.qs("#pin"), note: TB.qs("#h0-note"),
+    big: TB.qs("#bignum"), letter: TB.qs("#bigletter"), sub: TB.qs("#bigsub"),
+    chips: TB.qs("#chips"), draw: TB.qs("#btn-draw"),
+    board: TB.qs("#board"), rest: TB.qs("#board-rest"),
+    dot: TB.qs("#dot"), status: TB.qs("#status-text"), toast: TB.qs("#toast")
+  };
+  var busy = false, flushing = false, pinBad = false;
+
+  /* ---------- プロジェクター表示（横向き・大画面。手動トグルが優先） ---------- */
+  var PKEY = "tb.projector";
+  var pref = TB.store.get(PKEY);                 // true / false / null（null＝自動）
+  function autoProjector() { return window.innerWidth >= 900 && window.innerWidth > window.innerHeight; }
+  function projectorOn() { return (pref === null || pref === undefined) ? autoProjector() : !!pref; }
+  function applyProjector() {
+    var on = projectorOn() && el.h1.classList.contains("on");
+    document.body.classList[on ? "add" : "remove"]("projector");
+    var b = TB.qs("#m-projector");
+    if (b) b.textContent = "プロジェクター表示：" + (projectorOn() ? "オン" : "オフ")
+      + ((pref === null || pref === undefined) ? "（自動）" : "");
+  }
+
+  /* ---------- 表示 ---------- */
+  function toast(msg) {
+    el.toast.textContent = msg; el.toast.classList.add("on");
+    clearTimeout(toast._t);
+    toast._t = setTimeout(function () { el.toast.classList.remove("on"); }, 2600);
+  }
+
+  function renderStatus() {
+    var n = S.outbox.length;
+    if (pinBad) { el.dot.className = "dot off"; el.status.textContent = "PIN 不一致（この端末では進めます）"; return; }
+    if (!TB.apiEnabled) { el.dot.className = "dot wait"; el.status.textContent = "単独モード（この端末だけ）"; return; }
+    if (n > 0) { el.dot.className = "dot wait"; el.status.textContent = "未送信 " + n + " 件"; return; }
+    el.dot.className = "dot"; el.status.textContent = "オンライン";
+  }
+
+  function renderChips() {
+    var d = S.draws;
+    if (!d.length) { el.chips.innerHTML = '<span class="chips-empty">まだ1つも引いていません</span>'; return; }
+    var html = "";
+    for (var i = d.length - 1; i >= 0; i--) {
+      html += '<span class="chip' + (i === d.length - 1 ? " latest" : "") + '">'
+        + "<b>" + d[i].number + "</b><small>" + (i + 1) + " 個目</small></span>";
+    }
+    el.chips.innerHTML = html;
+    el.chips.scrollLeft = 0;
+  }
+
+  /** 1〜75 の盤面（プロジェクター表示のときだけ描く） */
+  function renderBoard() {
+    if (!projectorOn()) return;
+    var rows = TB.boardRows(numbers(), MAX), html = "";
+    for (var r = 0; r < rows.length; r++) {
+      html += '<div class="blabel b' + r + '">' + rows[r].letter + "</div>";
+      for (var c = 0; c < rows[r].cells.length; c++) {
+        var x = rows[r].cells[c];
+        html += '<div class="bcell' + (x.hit ? " hit" : "") + (x.latest ? " latest" : "") + '">' + x.number + "</div>";
+      }
+    }
+    el.board.innerHTML = html;
+    el.rest.textContent = "あと " + TB.remaining(numbers(), MAX).length + " 個";
+  }
+
+  function bigMode() { return document.body.classList.contains("projector") ? "projector" : ""; }
+
+  function renderMain() {
+    applyProjector();
+    var l = last(), rest = TB.remaining(numbers(), MAX).length;
+    TB.fitBig(el.big, l ? String(l.number) : "--", bigMode());
+    el.letter.textContent = l ? TB.letterOf(l.number) : "";
+    el.sub.textContent = rest > 0 ? ("残り " + rest + " ／ 出た " + S.draws.length) : "全部出ました";
+    el.draw.disabled = busy || rest === 0;
+    el.draw.textContent = rest === 0 ? "全部出ました" : (busy ? "…" : "数字を引く!!");
+    renderChips();
+    renderBoard();
+    renderStatus();
+  }
+
+  /* ---------- 送信キュー（復帰したら未送信分を sync で送る） ---------- */
+  function queue(op) { S.outbox.push(op); save(); renderStatus(); flush(); }
+
+  function flush() {
+    if (flushing || pinBad || !TB.apiEnabled || S.outbox.length === 0) return;
+    flushing = true;
+    var head = S.outbox[0], p, n = 1;
+    if (head.op === "reset") {
+      p = TB.api.reset(GID, S.pin, TB.TITLE);
+    } else if (head.op === "undo") {
+      p = TB.api.undo(GID, S.pin);
+    } else {
+      var batch = [];
+      for (var i = 0; i < S.outbox.length && S.outbox[i].op === "draw"; i++) batch.push(S.outbox[i]);
+      n = batch.length;
+      if (n === 1) p = TB.api.draw(GID, S.pin, batch[0].seq, batch[0].number);
+      else p = TB.api.sync(GID, S.pin, batch.map(function (b) {
+        return { seq: b.seq, number: b.number, drawn_at: b.at };
+      }));
+    }
+    p.then(function (r) {
+      flushing = false;
+      if (r.ok) {
+        S.outbox.splice(0, n); save(); renderStatus();
+        if (S.outbox.length) flush();
+      } else if (r.offline) {
+        renderStatus();                       // 次のタイマーで再試行
+      } else if (r.status === 401) {
+        pinBad = true; renderStatus();
+        toast("PIN がサーバと違います。参加者の画面は更新されません。");
+      } else if (r.status === 409) {
+        reconcile();
+      } else if (r.status === 404) {
+        rebuildOnServer();                    // サーバ側にゲームが無い＝作り直して全部送る
+      } else {
+        S.outbox.splice(0, n); save(); renderStatus();
+        toast("送信できませんでした（この端末の進行は続きます）");
+      }
+    });
+  }
+
+  /** サーバ側にゲームが無いとき：この PIN で作り直し、手元の履歴を全部送り直す */
+  function rebuildOnServer() {
+    if (S.outbox.length && S.outbox[0].op === "reset") return;   // 二重に積まない
+    S.outbox = [{ op: "reset" }];
+    for (var i = 0; i < S.draws.length; i++) {
+      S.outbox.push({ op: "draw", seq: S.draws[i].seq, number: S.draws[i].number, at: S.draws[i].at });
+    }
+    save(); renderStatus(); flush();
+  }
+
+  /** サーバと食い違ったら：サーバの履歴を土台にして、こちらの余りを後ろに足す */
+  function reconcile() {
+    TB.api.state(GID).then(function (r) {
+      if (!r.ok || !r.data || !r.data.draws) { renderStatus(); return; }
+      var sv = r.data.draws, have = {}, merged = [], i;
+      for (i = 0; i < sv.length; i++) {
+        have[sv[i].number] = true;
+        merged.push({ seq: i + 1, number: sv[i].number, at: sv[i].drawn_at || TB.nowIso() });
+      }
+      var extra = [];
+      for (i = 0; i < S.draws.length; i++) {
+        if (!have[S.draws[i].number]) {
+          var d = { seq: merged.length + 1, number: S.draws[i].number, at: S.draws[i].at };
+          merged.push(d); extra.push({ op: "draw", seq: d.seq, number: d.number, at: d.at });
+        }
+      }
+      S.draws = merged; S.outbox = extra; save();
+      renderMain();
+      if (extra.length) flush();
+    });
+  }
+
+  /* ---------- ルーレット演出（約1.5秒・演出中はボタン無効） ---------- */
+  function roulette(finalNum, done) {
+    var t0 = Date.now(), dur = 1500, mode = bigMode();
+    var pool = TB.remaining(numbers(), MAX);
+    el.big.classList.add("spin");
+    el.letter.textContent = "";
+    (function tick() {
+      var e = (Date.now() - t0) / dur;
+      if (e >= 1) {
+        el.big.classList.remove("spin");
+        TB.fitBig(el.big, String(finalNum), mode);
+        el.letter.textContent = TB.letterOf(finalNum);
+        el.big.classList.remove("pop"); void el.big.offsetWidth; el.big.classList.add("pop");
+        try { if (navigator.vibrate) navigator.vibrate([25, 45, 90]); } catch (x) { }
+        done();
+        return;
+      }
+      var v = pool.length ? pool[Math.floor(Math.random() * pool.length)] : finalNum;
+      TB.fitBig(el.big, String(v), mode);
+      setTimeout(tick, 40 + 220 * Math.pow(e, 3));
+    })();
+  }
+
+  /* ---------- 操作 ---------- */
+  function doDraw() {
+    if (busy) return;
+    var n = TB.drawNext(numbers(), MAX);
+    if (n === null) { renderMain(); return; }
+    busy = true; el.draw.disabled = true; el.draw.textContent = "…";
+    roulette(n, function () {
+      var d = { seq: S.draws.length + 1, number: n, at: TB.nowIso() };
+      S.draws.push(d); save();                 // ★先に手元へ確定（通信の成否に関係なく進む）
+      busy = false;
+      renderMain();
+      queue({ op: "draw", seq: d.seq, number: d.number, at: d.at });
+    });
+  }
+
+  function doUndo() {
+    if (!S.draws.length) return;
+    S.draws.pop(); save();
+    // 未送信の末尾が同じ1件ならキューから消すだけ。送信済みならサーバへ取消を送る。
+    var ob = S.outbox;
+    if (ob.length && ob[ob.length - 1].op === "draw" && ob[ob.length - 1].seq === S.draws.length + 1) {
+      ob.pop(); save(); renderStatus();
+    } else {
+      queue({ op: "undo" });
+    }
+    renderMain();
+    toast("最後の 1 件を取り消しました");
+  }
+
+  function doReset() {
+    S.draws = []; S.outbox = []; save();
+    queue({ op: "reset" });
+    renderMain();
+    toast("新しいゲームをはじめます");
+  }
+
+  /* ---------- シート ---------- */
+  function sheet(id, on) { TB.qs(id).classList[on ? "add" : "remove"]("on"); }
+
+  /** 2段確認：1段目 → 2段目 → 実行 */
+  function confirm2(step1, step2, run) {
+    var t = TB.qs("#c-title"), b = TB.qs("#c-body"), ok = TB.qs("#c-ok");
+    function show(s, next) {
+      t.textContent = s.title; b.innerHTML = s.body; ok.textContent = s.ok;
+      ok.onclick = function () { next(); };
+      sheet("#sheet-confirm", true);
+    }
+    show(step1, function () { show(step2, function () { sheet("#sheet-confirm", false); run(); }); });
+  }
+  TB.qs("#c-cancel").onclick = function () { sheet("#sheet-confirm", false); };
+
+  function closeSheets() {
+    sheet("#sheet-menu", false); sheet("#sheet-qr", false); sheet("#sheet-confirm", false);
+  }
+  function anySheetOpen() {
+    return !!document.querySelector(".sheet.on");
+  }
+
+  TB.qs("#btn-menu").onclick = function () { sheet("#sheet-menu", true); };
+  TB.qs("#m-close").onclick = function () { sheet("#sheet-menu", false); };
+
+  TB.qs("#m-projector").onclick = function () {
+    pref = !projectorOn();                        // 手動の指定が自動判定より優先
+    TB.store.set(PKEY, pref);
+    renderMain();
+    toast("プロジェクター表示を" + (pref ? "オンに" : "オフに") + "しました");
+  };
+
+  TB.qs("#m-qr").onclick = function () {
+    sheet("#sheet-menu", false);
+    var url = TB.guestUrl(GID);
+    TB.qs("#qrurl").textContent = url;
+    sheet("#sheet-qr", true);
+    setTimeout(function () {
+      var box = TB.qs("#qr").parentNode;
+      var px = Math.min(box.clientWidth - 24, Math.round(window.innerHeight * 0.5), 420);
+      try { TB.qr.draw(TB.qs("#qr"), url, { px: px }); }
+      catch (e) { TB.qs("#qrurl").textContent = "QR を作れませんでした： " + url; }
+    }, 30);
+  };
+  TB.qs("#qr-close").onclick = function () { sheet("#sheet-qr", false); };
+
+  TB.qs("#m-undo").onclick = function () {
+    sheet("#sheet-menu", false);
+    var l = last();
+    if (!l) { toast("取り消せる番号がありません"); return; }
+    confirm2(
+      { title: "最後の 1 件を取り消す", body: "いま出ている <b>" + l.number + "</b> を無かったことにします。よろしいですか？", ok: "取り消す" },
+      { title: "本当に取り消しますか？", body: "<b>" + l.number + "</b> は未出に戻り、参加者の画面からも消えます。", ok: "はい、取り消す" },
+      doUndo
+    );
+  };
+
+  TB.qs("#m-reset").onclick = function () {
+    sheet("#sheet-menu", false);
+    confirm2(
+      { title: "新しいゲーム", body: "出た番号 " + S.draws.length + " 件をすべて消して、1 から始めます。", ok: "新しく始める" },
+      { title: "本当に消しますか？", body: "この操作は戻せません。参加者の画面も空になります。", ok: "はい、全部消す" },
+      doReset
+    );
+  };
+
+  el.draw.onclick = doDraw;
+
+  /* ---------- キーボード ----------
+     H1 を出している間はいつでも（プロジェクター表示かどうかに関係なく）
+     スペースで引ける。PageDown と → も同じ＝プレゼン用リモコンで進行できる。 */
+  var DRAW_KEYS = { " ": 1, "Spacebar": 1, "Enter": 1, "PageDown": 1, "ArrowRight": 1, "Right": 1 };
+  document.addEventListener("keydown", function (e) {
+    var k = e.key;
+    if (k === "Escape" || k === "Esc") { closeSheets(); return; }
+    if (DRAW_KEYS[k] !== 1) return;               // ＝ 定義したキー以外は無視
+    if (e.repeat) { e.preventDefault(); return; }   // 押しっぱなしで連続発射させない
+    if (e.ctrlKey || e.altKey || e.metaKey) return;
+
+    var tag = document.activeElement ? document.activeElement.tagName : "";
+    if (/^(INPUT|TEXTAREA|SELECT)$/.test(tag)) {
+      // H0 の PIN 欄で Enter ＝「はじめる」
+      if (k === "Enter" && el.h0.classList.contains("on")) { e.preventDefault(); TB.qs("#btn-start").click(); }
+      return;
+    }
+    if (anySheetOpen()) return;                   // 確認シートが開いている間は引かない
+    if (!el.h1.classList.contains("on")) return;
+    e.preventDefault();                           // ボタンの既定動作と二重に発火させない
+    doDraw();                                     // 演出中は doDraw 側の busy で弾かれる
+  });
+
+  /* ---------- 開始 ---------- */
+  TB.qs("#btn-start").onclick = function () {
+    var v = (el.pin.value || "").replace(/[^0-9]/g, "");
+    if (v.length !== 4) { el.note.textContent = "4 桁の数字を入れてください。"; el.pin.focus(); return; }
+    S.pin = v; save();
+    el.h0.classList.remove("on"); el.h1.classList.add("on");
+    renderMain();
+    start();
+  };
+
+  function start() {
+    if (!TB.apiEnabled) { renderStatus(); return; }
+    TB.api.state(GID).then(function (r) {
+      if (r.offline) { renderStatus(); return; }
+      if (r.status === 404 || !r.data || !r.data.game) {
+        rebuildOnServer();                             // 新規＝この PIN をサーバへ登録して手元の分を送る
+        return;
+      }
+      reconcile();
+    });
+  }
+
+  // 未送信分の再試行（復帰したら自動で追いつく）
+  setInterval(flush, 8000);
+  window.addEventListener("online", flush);
+  document.addEventListener("visibilitychange", function () { if (!document.hidden) flush(); });
+  window.addEventListener("resize", function () { if (!busy) renderMain(); });
+  window.addEventListener("orientationchange", function () { setTimeout(function () { if (!busy) renderMain(); }, 200); });
+
+  // 進行中の不意な離脱を止める
+  window.addEventListener("beforeunload", function (e) {
+    if (el.h1.classList.contains("on") && S.draws.length > 0 && TB.remaining(numbers(), MAX).length > 0) {
+      e.preventDefault(); e.returnValue = "";
+    }
+  });
+
+  // 途中再開（前回の続きがあれば PIN を出しておく）
+  if (S.pin) { el.pin.value = S.pin; }
+  if (S.draws.length) {
+    el.note.textContent = "前回の続き（" + S.draws.length + " 件）から再開できます。";
+  }
+  renderStatus();
+})();
+</script>
+</body>
+</html>

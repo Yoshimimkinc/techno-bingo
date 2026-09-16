@@ -1,0 +1,354 @@
+/* テクノのビンゴ — 共通スタイル（ホスト／参加者）
+   区分: 🟢緑
+   前提: iPhone Safari / Android Chrome の縦持ち。遠目でも読めること。
+   規約: フォント下限 モバイル16px・タッチターゲット 44px 以上・角丸 12px・safe-area 対応 */
+
+:root {
+  /* ===== 出た数字の見せ方＝この 3 色だけで決める（派手さより視認性） =====
+     ①背景 --c-bg ／ ②出た番号 --c-hit（塗り）／ ③最新 --c-latest（塗り）
+     塗りの上の文字は --c-on-hit（白）／--c-on-latest（濃紺）。未出は --c-dim の文字だけ。
+     見え方を変えたいときは、まずこの 6 つだけを触る。他の色は足さない。 */
+  --c-bg: #0b0f1a;        /* ①背景（濃紺。会場を暗くしても沈まない） */
+  --c-hit: #2563eb;       /* ②出た番号＝濃い塗り。文字は白 */
+  --c-latest: #ffd60a;    /* ③最新の 1 件だけ（黄）。でか文字もこの色で統一 */
+  --c-on-hit: #ffffff;    /* 出た番号の文字（白） */
+  --c-on-latest: #0b0f1a; /* 最新の文字（黄の上なので濃紺） */
+
+  /* 未出のマス＝背景とほぼ同化させる（管理者指示 2026-09-16 10:44）。
+     「マスの位置が分かる程度で、数字は読めなくてよい」。
+     --c-bg に対するコントラスト比を 1.3 以下に保つこと（現状 約1.19）。
+     明るくしたい／暗くしたいときはこの 2 つだけを触る。検算＝scripts/contrast_test.js */
+  --cell-off-fg: #1a2134; /* 未出の数字の色 */
+  --cell-off-bg: transparent; /* 未出のマスの背景（枠も描かない） */
+
+  --bg: var(--c-bg);
+  --panel: #151b2b;
+  --panel2: #1d2438;
+  --line: #2c3550;
+  --fg: #f2f5ff;
+  --muted: #93a0c0;
+  --num: var(--c-latest);
+  --accent: #4cc9f0;
+  --warn: #ff6b6b;
+  --ok: #80ed99;
+  --radius: 12px;
+  --num-font: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas,
+    "Noto Sans Mono", "Roboto Mono", monospace;
+  --ui-font: -apple-system, BlinkMacSystemFont, "Hiragino Kaku Gothic ProN",
+    "Noto Sans JP", "Yu Gothic UI", Meiryo, system-ui, sans-serif;
+}
+
+* { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+
+html, body {
+  margin: 0;
+  padding: 0;
+  height: 100%;
+  background: var(--bg);
+  color: var(--fg);
+  font-family: var(--ui-font);
+  font-size: 16px;
+  line-height: 1.5;
+  touch-action: manipulation;
+  -webkit-text-size-adjust: 100%;
+  overscroll-behavior: none;   /* 引っぱって再読込＝進行中の事故を防ぐ */
+}
+
+body { display: flex; flex-direction: column; }
+
+.screen { display: none; flex: 1 1 auto; min-height: 0; flex-direction: column; }
+.screen.on { display: flex; }
+
+/* ---------- BINGO!! ロゴ ---------- */
+.logo {
+  display: flex; align-items: center; justify-content: center;
+  gap: 4px; padding: 8px 10px 4px;
+  flex: 0 0 auto;
+}
+.logo b {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: min(13vw, 56px); height: min(13vw, 56px);
+  border-radius: 10px; font-size: min(7.5vw, 32px); line-height: 1;
+  font-family: var(--num-font); font-weight: 700; color: #0b0f1a;
+}
+.logo b:nth-child(1) { background: #ff4d6d; }
+.logo b:nth-child(2) { background: #ffb703; }
+.logo b:nth-child(3) { background: #4cc9f0; }
+.logo b:nth-child(4) { background: #80ed99; }
+.logo b:nth-child(5) { background: #c77dff; }
+.logo i {
+  font-style: normal; font-weight: 900; font-size: min(8vw, 34px); color: var(--num);
+  margin-left: 2px; letter-spacing: -0.04em; line-height: 1;
+}
+
+/* ---------- でか文字 ---------- */
+.bignum-wrap {
+  flex: 1 1 auto; min-height: 0;
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  position: relative;
+}
+.bignum {
+  font-family: var(--num-font);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  font-size: min(75vw, 42vh);
+  line-height: 0.9;
+  letter-spacing: -0.03em;
+  color: var(--num);
+  text-align: center;
+  user-select: none; -webkit-user-select: none;
+}
+.bignum.spin { color: #59648c; }                 /* 回転中は沈ませ、確定した瞬間を際立たせる */
+/* 確定演出：一瞬白く光って大きくなり、0.3 秒で最新色に落ち着く */
+.bignum.pop { animation: pop 300ms cubic-bezier(.2, 1.5, .35, 1); }
+@keyframes pop {
+  0% { transform: scale(0.62); opacity: .4; color: #ffffff; }
+  45% {
+    transform: scale(1.16); opacity: 1; color: #ffffff;
+    text-shadow: 0 0 min(7vw, 70px) rgba(255, 255, 255, .8);
+  }
+  100% { transform: scale(1); color: var(--c-latest); text-shadow: 0 0 0 rgba(255, 255, 255, 0); }
+}
+.bigletter {
+  font-family: var(--num-font); font-weight: 700;
+  font-size: min(12vw, 7vh); color: var(--accent); letter-spacing: .1em;
+  min-height: 1.2em;
+}
+.bigsub { color: var(--muted); font-size: 16px; }
+
+/* ---------- 履歴チップ（最新5件が見える／横スクロールで全件） ---------- */
+.chips {
+  flex: 0 0 auto;
+  display: flex; gap: 8px;
+  padding: 10px 12px;
+  overflow-x: auto; overflow-y: hidden;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+  background: var(--panel);
+  border-top: 1px solid var(--line);
+  border-bottom: 1px solid var(--line);
+}
+.chips::-webkit-scrollbar { display: none; }
+/* 出た番号は「塗り＋濃い文字」で見せる（細枠の箱にしない）。高さは指で読める 2 段分 */
+.chip {
+  flex: 0 0 auto;
+  /* 最新5件がちょうど見える幅（画面幅 − 左右余白 − チップ間）。PCでは広がりすぎないよう頭打ち */
+  min-width: min(calc((100vw - 24px - 32px) / 5), 104px);
+  height: 96px;
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: 2px; padding: 4px 6px;
+  border-radius: var(--radius);
+  background: var(--c-hit); color: var(--c-on-hit);
+  font-family: var(--num-font); font-variant-numeric: tabular-nums;
+}
+.chip b { font-size: 34px; font-weight: 700; line-height: 1; letter-spacing: -0.02em; }
+.chip small { font-size: 14px; font-family: var(--ui-font); opacity: .66; line-height: 1; }
+.chip.latest {
+  background: var(--c-latest); color: var(--c-on-latest);
+  min-width: min(calc((100vw - 24px - 32px) / 4.3), 120px);
+  box-shadow: 0 0 0 3px rgba(255, 214, 10, .32);
+}
+.chip.latest b { font-size: 44px; }
+.chip.latest small { opacity: .8; font-weight: 700; }
+.chips-empty { color: var(--muted); font-size: 16px; padding: 38px 4px; }
+
+/* ---------- ボタン ---------- */
+.btn {
+  display: block; width: 100%;
+  min-height: 56px; padding: 14px 18px;
+  border: 0; border-radius: var(--radius);
+  background: var(--panel2); color: var(--fg);
+  font-family: var(--ui-font); font-size: 18px; font-weight: 700;
+  cursor: pointer;
+}
+.btn:active { transform: translateY(1px); }
+.btn[disabled] { opacity: .45; }
+.btn-primary { background: var(--num); color: #0b0f1a; }
+.btn-danger { background: var(--warn); color: #150505; }
+.btn-ghost { background: transparent; border: 1px solid var(--line); color: var(--muted); }
+
+.footer {
+  flex: 0 0 auto;
+  padding: 10px 12px calc(10px + env(safe-area-inset-bottom));
+  background: var(--bg);
+}
+.btn-draw {
+  min-height: 84px;
+  font-size: 28px; font-weight: 900; letter-spacing: .02em;
+}
+
+/* ---------- ヘッダ行（状態・メニュー） ---------- */
+.topbar {
+  flex: 0 0 auto;
+  display: flex; align-items: center; gap: 8px;
+  padding: calc(6px + env(safe-area-inset-top)) 12px 0;
+  min-height: 34px;
+}
+.status {
+  font-size: 13px; color: var(--muted);
+  display: inline-flex; align-items: center; gap: 6px;
+}
+.dot { width: 9px; height: 9px; border-radius: 50%; background: var(--ok); }
+.dot.off { background: var(--warn); }
+.dot.wait { background: #ffb703; }
+.spacer { flex: 1 1 auto; }
+.iconbtn {
+  width: 44px; height: 44px; border: 0; border-radius: var(--radius);
+  background: transparent; color: var(--fg); font-size: 22px; cursor: pointer;
+}
+
+/* ---------- スタート画面 ---------- */
+.start {
+  flex: 1 1 auto;
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: 18px; padding: 24px 20px calc(24px + env(safe-area-inset-bottom));
+  text-align: center;
+}
+.start h1 { margin: 0; font-size: 30px; letter-spacing: .02em; }
+.start h2 { margin: 0; font-size: 19px; font-weight: 500; color: var(--muted); }
+.start .note { color: var(--muted); font-size: 15px; max-width: 30em; }
+.start .btn { max-width: 420px; }
+.pin {
+  width: 220px; height: 64px;
+  text-align: center; letter-spacing: .5em; text-indent: .5em;
+  font-family: var(--num-font); font-size: 32px; font-weight: 700;
+  border-radius: var(--radius); border: 1px solid var(--line);
+  background: var(--panel2); color: var(--fg);
+}
+
+/* ---------- 参加者：6列グリッド ---------- */
+.grid {
+  flex: 1 1 auto; min-height: 0; overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  display: grid; grid-template-columns: repeat(6, 1fr);
+  gap: 6px; padding: 10px 10px calc(16px + env(safe-area-inset-bottom));
+  align-content: start;
+  width: 100%; max-width: 560px; margin: 0 auto;   /* PC で開いても手元のスマホと同じ大きさ */
+}
+/* 参加者画面のグリッドも「出た数字＝塗り」で揃える */
+.cell {
+  aspect-ratio: 1 / 1;
+  display: flex; align-items: center; justify-content: center;
+  border-radius: 10px;
+  background: var(--c-hit); color: var(--c-on-hit);
+  font-family: var(--num-font); font-weight: 700;
+  font-size: min(7vw, 32px); font-variant-numeric: tabular-nums;
+}
+.cell.latest {
+  background: var(--c-latest); color: var(--c-on-latest);
+  box-shadow: 0 0 0 3px rgba(255, 214, 10, .35);
+  transform: scale(1.06);
+}
+.gridhead {
+  flex: 0 0 auto; display: flex; align-items: baseline; gap: 10px;
+  padding: 6px 12px; color: var(--muted); font-size: 14px;
+  border-top: 1px solid var(--line);
+}
+
+/* ============================================================
+   プロジェクター表示（横向き・大画面）
+   左 40% ＝ でか文字＋「数字を引く!!」／右 60% ＝ 1〜75 の盤面
+   ホスト端末 1 台で完結する（サーバ不要）。この画面がホワイトボードを兼ねる。
+   ============================================================ */
+.board-wrap { display: none; }
+
+body.projector { overflow: hidden; }
+body.projector #h1.screen.on {
+  display: grid;
+  grid-template-columns: 40fr 60fr;
+  grid-template-rows: auto auto 1fr auto;
+  grid-template-areas:
+    "bar   board"
+    "logo  board"
+    "num   board"
+    "btn   board";
+  height: 100vh; min-height: 0;
+}
+body.projector .topbar { grid-area: bar; }
+body.projector .logo { grid-area: logo; padding: 0 10px; }
+body.projector .bignum-wrap { grid-area: num; min-height: 0; }
+body.projector .footer { grid-area: btn; }
+body.projector .chips { display: none; }          /* 盤面が履歴を兼ねる */
+body.projector .board-wrap {
+  grid-area: board; display: flex; flex-direction: column; min-width: 0; min-height: 0;
+  padding: min(1.2vh, 14px) min(1.2vw, 18px) min(1.6vh, 18px) 0;
+  gap: min(1vh, 10px);
+}
+body.projector .btn-draw { min-height: min(11vh, 110px); font-size: min(3.2vw, 44px); }
+body.projector .bigletter { font-size: min(5vw, 9vh); }
+body.projector .bigsub { font-size: min(1.5vw, 20px); }
+body.projector .logo b { width: min(4.6vw, 58px); height: min(4.6vw, 58px); font-size: min(2.7vw, 34px); }
+body.projector .logo i { font-size: min(3vw, 36px); }
+
+.board {
+  flex: 1 1 auto; min-height: 0;
+  display: grid;
+  grid-template-columns: auto repeat(15, minmax(0, 1fr));
+  grid-template-rows: repeat(5, minmax(0, 1fr));
+  gap: min(0.6vw, 10px);
+}
+.blabel, .bcell {
+  display: flex; align-items: center; justify-content: center;
+  border-radius: min(0.8vw, 12px);
+  font-family: var(--num-font); font-weight: 700; font-variant-numeric: tabular-nums;
+  font-size: min(2.2vw, 8vh); line-height: 1;
+  min-width: 0; overflow: hidden;
+}
+/* 行見出しも「出た番号」と同じ塗りにして、盤面を 3 色で統一する */
+.blabel { width: min(4vw, 64px); background: var(--c-hit); color: var(--c-on-hit); opacity: .82; }
+/* 未出＝背景とほぼ同化（数字は読めなくてよい）。出た＝濃い塗り＋白文字。最新＝黄＋白の太枠。
+   遠目で見たとき「塗られたマスの並び」だけが浮き上がるようにする。 */
+.bcell { background: var(--cell-off-bg); color: var(--cell-off-fg); }
+.bcell.hit { background: var(--c-hit); color: var(--c-on-hit); }
+.bcell.latest {
+  background: var(--c-latest); color: var(--c-on-latest);
+  outline: min(0.45vw, 7px) solid #ffffff;
+  outline-offset: calc(-1 * min(0.45vw, 7px));
+  transform: scale(1.07);
+  box-shadow: 0 0 0 min(0.5vw, 8px) rgba(255, 214, 10, .35);
+}
+.board-rest {
+  flex: 0 0 auto; text-align: right; color: var(--muted);
+  font-size: min(1.5vw, 20px);
+}
+
+/* ---------- シート（メニュー・確認・QR） ---------- */
+.sheet {
+  position: fixed; inset: 0; z-index: 30;
+  display: none; align-items: flex-end; justify-content: center;
+  background: rgba(0, 0, 0, .62);
+}
+.sheet.on { display: flex; }
+.sheet-in {
+  width: 100%; max-width: 560px;
+  background: var(--panel); border-radius: 18px 18px 0 0;
+  border-top: 1px solid var(--line);
+  padding: 16px 16px calc(16px + env(safe-area-inset-bottom));
+  display: flex; flex-direction: column; gap: 10px;
+  max-height: 92vh; overflow-y: auto;
+}
+.sheet-title { font-size: 19px; font-weight: 700; margin: 2px 0 2px; }
+.sheet-body { color: var(--muted); font-size: 16px; }
+.sheet-body b { color: var(--num); font-family: var(--num-font); font-size: 20px; }
+.qrbox {
+  background: #fff; border-radius: var(--radius);
+  padding: 12px; display: flex; justify-content: center;
+}
+.qrurl {
+  word-break: break-all; font-size: 14px; color: var(--muted); text-align: center;
+  font-family: var(--num-font);
+}
+
+/* 画面の上に出す。履歴チップと「数字を引く!!」ボタンには絶対に重ねない */
+.toast {
+  position: fixed; left: 50%; top: calc(42px + env(safe-area-inset-top));
+  transform: translateX(-50%);
+  background: var(--panel2); color: var(--fg);
+  border: 1px solid var(--line); border-radius: var(--radius);
+  padding: 10px 16px; font-size: 15px; z-index: 40;
+  opacity: 0; pointer-events: none; transition: opacity .2s;
+  max-width: 88vw; text-align: center;
+}
+.toast.on { opacity: 1; }
+/* プロジェクター表示では盤面に重ねない（左の列の中に出す） */
+body.projector .toast { left: 20%; top: auto; bottom: calc(14vh + 16px); }

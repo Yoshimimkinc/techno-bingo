@@ -1,0 +1,31 @@
+// テクノのビンゴ — wrangler 設定
+// 参照: docs/05_ARCHITECTURE_DESIGN.md（Worker 1 本で静的配信＋API＋KV）
+//
+// 初回だけ管理者の許可を取ってから：
+//   1) cd server && npx wrangler kv namespace create BINGO
+//   2) 表示された id を下の kv_namespaces.id に貼る
+//   3) npx wrangler deploy
+// ローカル確認は npx wrangler dev（KV はローカルに自動で用意される）
+{
+  "name": "techno-bingo",
+  "main": "src/index.js",
+  "compatibility_date": "2026-09-04",
+
+  // client/public をそのまま配る（ビルド無し）。
+  // /        → index.html（参加者）
+  // /host    → host.html（ホスト・html_handling の既定で拡張子なしでも届く）
+  // /api/*   → アセットに無いので Worker 本体が受ける
+  "assets": {
+    "directory": "../client/public",
+    "binding": "ASSETS",
+    "html_handling": "auto-trailing-slash",
+    // "none" ＝ アセットに無いパスは Worker 本体へ落とす（/api/* をここで飲み込ませない）
+    "not_found_handling": "none"
+  },
+
+  "kv_namespaces": [
+    { "binding": "BINGO", "id": "<wrangler kv namespace create BINGO の ID をここに>" }
+  ],
+
+  "observability": { "enabled": true }
+}
