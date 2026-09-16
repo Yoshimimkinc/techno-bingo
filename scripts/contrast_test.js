@@ -56,7 +56,38 @@ const rLatestHit = ratio(latest, hit), rOnLatest = ratio(onLatest, latest);
 check(rLatestHit >= 2.0, `最新 ${latest} と出たマス ${hit} の比が ${r2(rLatestHit)}（2.0 以上）`);
 check(rOnLatest >= 4.5, `最新の文字 ${onLatest} と塗りの比が ${r2(rOnLatest)}（4.5 以上）`);
 
-// ④ 未出と出たマスの差が最大になっていること
+// ④ 参加者画面のガラス風カード（v03）
+//    半透明の白を背景グラデの「一番明るい側」に重ねた実効色で測る（＝最悪条件）。
+function rgbaOver(fill, alpha, bgHex) {
+  const b = bgHex.replace("#", "");
+  const bs = [0, 2, 4].map((i) => parseInt(b.slice(i, i + 2), 16));
+  const out = fill.map((f, i) => Math.round(alpha * f + (1 - alpha) * bs[i]));
+  return "#" + out.map((x) => x.toString(16).padStart(2, "0")).join("");
+}
+function parseRgba(s) {
+  const m = s.match(/rgba?\(\s*([\d.]+)[,\s]+([\d.]+)[,\s]+([\d.]+)(?:[,\s/]+([\d.]+))?\s*\)/);
+  if (!m) throw new Error("rgba を読めない: " + s);
+  return { rgb: [+m[1], +m[2], +m[3]], a: m[4] === undefined ? 1 : +m[4] };
+}
+
+const guestBg = v("guest-bg-2");                 // グラデの明るい側＝白文字には一番きびしい
+const glass = parseRgba(v("glass-bg"));
+const glassOver = rgbaOver(glass.rgb, glass.a, guestBg);
+const rGlassText = ratio("#ffffff", glassOver);
+check(rGlassText >= 4.5,
+  `ガラスカードの白文字と背景（実効色 ${glassOver}）の比が ${r2(rGlassText)}（4.5 以上）`);
+
+// 縁が見えること（ガラスの形が分かる）
+const line = parseRgba(v("glass-line"));
+const lineOver = rgbaOver(line.rgb, line.a, guestBg);
+check(ratio(lineOver, guestBg) >= 1.2, `ガラスの縁が背景から浮いている（${r2(ratio(lineOver, guestBg))}）`);
+
+// 最新のカード（黄のガラス）の文字も読めること
+const latestGlass = rgbaOver([255, 214, 10], 0.22, guestBg);
+check(ratio(latest, latestGlass) >= 4.5,
+  `最新カードの黄文字と面（実効色 ${latestGlass}）の比が ${r2(ratio(latest, latestGlass))}（4.5 以上）`);
+
+// ⑤ 未出と出たマスの差が最大になっていること
 check(ratio(offFg, hit) >= 3.0, "未出の数字と出たマスの塗りが十分に離れている");
 check(rHitBg / rOff >= 2.5, "「塗られたマス」が「未出」よりはっきり浮き上がる");
 
@@ -65,7 +96,8 @@ console.log(
   "（目標 1.3 以下） 塗り/背景=" + r2(rHitBg) +
   " 白文字/塗り=" + r2(rOnHit) +
   " 最新/塗り=" + r2(rLatestHit) +
-  " 最新文字/最新=" + r2(rOnLatest)
+  " 最新文字/最新=" + r2(rOnLatest) +
+  " ガラス白文字/背景=" + r2(rGlassText)
 );
 console.log(`[contrast_test] 判定 ${ok} 件 PASS / ${ng} 件 NG`);
 if (ng > 0) { console.error("[contrast_test] FAIL"); process.exit(1); }

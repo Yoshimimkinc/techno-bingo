@@ -21,6 +21,14 @@
   --cell-off-fg: #1a2134; /* 未出の数字の色 */
   --cell-off-bg: transparent; /* 未出のマスの背景（枠も描かない） */
 
+  /* ===== 参加者画面だけの装い（v03）＝ガラス風カード =====
+     ホスト画面（プロジェクター表示・盤面）には一切かけない。 */
+  --guest-bg-1: #0f172a;             /* 背景グラデの上 */
+  --guest-bg-2: #1e293b;             /* 背景グラデの下（ここが一番明るい＝文字の比はここで測る） */
+  --glass-bg: rgba(255, 255, 255, 0.14);   /* ガラスの面 */
+  --glass-line: rgba(255, 255, 255, 0.26); /* ガラスの縁 */
+  --glass-blur: 12px;
+
   --bg: var(--c-bg);
   --panel: #151b2b;
   --panel2: #1d2438;
@@ -310,6 +318,65 @@ body.projector .logo i { font-size: min(3vw, 36px); }
 .board-rest {
   flex: 0 0 auto; text-align: right; color: var(--muted);
   font-size: min(1.5vw, 20px);
+}
+
+/* ============================================================
+   参加者画面（v03）— ガラス風カードと確定の演出
+   ここは body.guest の中だけ。ホスト画面には影響させない。
+   ============================================================ */
+body.guest {
+  background: linear-gradient(160deg, var(--guest-bg-1) 0%, var(--guest-bg-2) 100%);
+  background-attachment: fixed;
+}
+
+/* 出た番号のカード＝半透明の白＋ぼかし＋細い縁 */
+body.guest .cell {
+  background: var(--glass-bg);
+  border: 1px solid var(--glass-line);
+  border-radius: 14px;
+  color: #ffffff; font-weight: 800;
+  backdrop-filter: blur(var(--glass-blur));
+  -webkit-backdrop-filter: blur(var(--glass-blur));
+  box-shadow: 0 6px 18px rgba(0, 0, 0, .3), inset 0 1px 0 rgba(255, 255, 255, .18);
+}
+/* 最新＝縁を明るく・わずかに大きく（でか文字と同じ黄で揃える） */
+body.guest .cell.latest {
+  background: rgba(255, 214, 10, .22);
+  border-color: rgba(255, 214, 10, .85);
+  color: var(--c-latest);
+  transform: scale(1.06);
+  box-shadow: 0 8px 26px rgba(255, 214, 10, .22), inset 0 1px 0 rgba(255, 255, 255, .3);
+}
+/* backdrop-filter が無いブラウザ：ぼかさない代わりに少し濃くして必ず読めるようにする */
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  body.guest .cell { background: rgba(255, 255, 255, .2); }
+  body.guest .cell.latest { background: rgba(255, 214, 10, .3); }
+}
+
+/* 確定演出①：でか文字が拡大しながらフェードイン（0.4 秒） */
+.bignum.burst { animation: burst 400ms cubic-bezier(.16, 1, .3, 1); }
+@keyframes burst {
+  0% { transform: scale(1.6); opacity: 0; }
+  45% { opacity: 1; }
+  100% { transform: scale(1); opacity: 1; }
+}
+
+/* 確定演出②：画面全体に一瞬の光 */
+.flash {
+  position: fixed; inset: 0; z-index: 5; pointer-events: none; opacity: 0;
+  background: radial-gradient(circle at 50% 38%,
+    rgba(255, 255, 255, .5) 0%, rgba(255, 214, 10, .26) 26%, rgba(255, 255, 255, 0) 62%);
+}
+.flash.on { animation: flashfx 520ms ease-out; }
+@keyframes flashfx { 0% { opacity: 0; } 16% { opacity: 1; } 100% { opacity: 0; } }
+
+/* 確定演出③：数字のまわりの紙吹雪（canvas・1 秒で必ず消える） */
+.fx { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; z-index: 2; }
+
+/* 動きを減らす設定の端末では、拡大だけにする（光・紙吹雪・バイブは出さない） */
+@media (prefers-reduced-motion: reduce) {
+  .flash, .fx { display: none !important; }
+  .bignum.burst { animation-duration: 200ms; }
 }
 
 /* ---------- シート（メニュー・確認・QR） ---------- */

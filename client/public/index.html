@@ -3,12 +3,12 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<meta name="theme-color" content="#0b0f1a">
+<meta name="theme-color" content="#0f172a">
 <title>テクノのビンゴ</title>
 <link rel="icon" href="data:image/svg+xml,<svg%20xmlns=%22http://www.w3.org/2000/svg%22%20viewBox=%220%200%2032%2032%22><circle%20cx=%2216%22%20cy=%2216%22%20r=%2215%22%20fill=%22%23ffd60a%22/><circle%20cx=%2216%22%20cy=%2216%22%20r=%228%22%20fill=%22%230b0f1a%22/></svg>">
 <link rel="stylesheet" href="./styles.css">
 </head>
-<body>
+<body class="guest">
 
 <!-- ===== G0 スタート ===== -->
 <section id="g0" class="screen on">
@@ -31,10 +31,13 @@
   <div class="bignum-wrap" style="flex:0 0 auto;padding:4px 0 2px;">
     <div id="bignum" class="bignum">--</div>
     <div id="bigletter" class="bigletter"></div>
+    <canvas id="fx" class="fx" aria-hidden="true"></canvas>
   </div>
-  <div class="gridhead"><span>出た順</span><span id="hint">いちばん明るいのが最新です</span></div>
+  <div class="gridhead"><span>出た順（新しいものが上）</span><span id="hint">いちばん明るいのが最新です</span></div>
   <div id="grid" class="grid"></div>
 </section>
+
+<div id="flash" class="flash" aria-hidden="true"></div>
 
 <script src="./app.js"></script>
 <script>
@@ -46,23 +49,34 @@
     g0: TB.qs("#g0"), g1: TB.qs("#g1"),
     big: TB.qs("#bignum"), letter: TB.qs("#bigletter"),
     grid: TB.qs("#grid"), dot: TB.qs("#dot"),
-    status: TB.qs("#status-text"), count: TB.qs("#count")
+    status: TB.qs("#status-text"), count: TB.qs("#count"),
+    flash: TB.qs("#flash"), fx: TB.qs("#fx")
   };
   var draws = [], etag = null, lastOk = null, timer = null;
+  var prevLen = null;                 // null＝まだ一度も受け取っていない（初回は演出しない）
 
+  var reduceMotion = (function () {
+    try { return window.matchMedia && matchMedia("(prefers-reduced-motion: reduce)").matches; }
+    catch (e) { return false; }
+  })();
+
+  /* ============================================================
+   * 表示
+   * ==========================================================*/
   function render() {
     var l = draws.length ? draws[draws.length - 1] : null;
     TB.fitBig(el.big, l ? String(l.number) : "--");
     el.letter.textContent = l ? TB.letterOf(l.number) : "";
     el.count.textContent = draws.length + " / " + MAX;
 
-    var atBottom = el.grid.scrollTop + el.grid.clientHeight >= el.grid.scrollHeight - 24;
+    // 新しいものが上（最新が左上）
+    var atTop = el.grid.scrollTop <= 24;
     var html = "";
-    for (var i = 0; i < draws.length; i++) {
+    for (var i = draws.length - 1; i >= 0; i--) {
       html += '<div class="cell' + (i === draws.length - 1 ? " latest" : "") + '">' + draws[i].number + "</div>";
     }
     el.grid.innerHTML = html;
-    if (atBottom) el.grid.scrollTop = el.grid.scrollHeight;
+    if (atTop) el.grid.scrollTop = 0;
   }
 
   function setStatus() {
@@ -76,14 +90,105 @@
     }
   }
 
+  /* ============================================================
+   * 確定の演出（新しい 1 件を受け取った時だけ）
+   *   ①でか文字が拡大しながらフェードイン ②画面の光 ③紙吹雪 ④バイブ
+   *   初回のまとめ受信では出さない。動きを減らす設定なら①だけ。
+   * ==========================================================*/
+  function celebrate() {
+    el.big.classList.remove("burst");
+    void el.big.offsetWidth;                       // アニメーションを必ず出し直す
+    el.big.classList.add("burst");
+    if (reduceMotion) return;
+
+    el.flash.classList.remove("on");
+    void el.flash.offsetWidth;
+    el.flash.classList.add("on");
+
+    confetti();
+    try { if (navigator.vibrate) navigator.vibrate(80); } catch (e) { /* 非対応端末は無視 */ }
+  }
+
+  /* 紙吹雪：40 個以下・requestAnimationFrame・1 秒で必ず終了 */
+  var fxTimer = null, fxStop = null;
+  function confetti() {
+    var cv = el.fx, box = cv.parentNode.getBoundingClientRect();
+    if (!cv.getContext || box.width < 10) return;
+    var dpr = Math.min(window.devicePixelRatio || 1, 2);
+    cv.width = Math.round(box.width * dpr);
+    cv.height = Math.round(box.height * dpr);
+    var ctx = cv.getContext("2d");
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    // 端の 1px も必ず消える消し方（dpr の丸めで消し残さない）
+    function clearAll() {
+      ctx.save(); ctx.setTransform(1, 0, 0, 1, 0, 0);
+      ctx.clearRect(0, 0, cv.width, cv.height); ctx.restore();
+    }
+
+    var N = 36, LIFE = 900;                        // 1 秒以内に必ず消える
+    var cx = box.width / 2, cy = box.height * 0.5;
+    var colors = ["#ffd60a", "#ffffff", "#2563eb"];  // 3 色のまま
+    var ps = [];
+    for (var i = 0; i < N; i++) {
+      var a = (Math.PI * 2 * i) / N + Math.random() * 0.4;
+      var sp = 2.6 + Math.random() * 3.4;
+      ps.push({
+        x: cx, y: cy,
+        vx: Math.cos(a) * sp, vy: Math.sin(a) * sp - 1.6,
+        w: 4 + Math.random() * 5, h: 7 + Math.random() * 7,
+        rot: Math.random() * Math.PI, vr: (Math.random() - 0.5) * 0.35,
+        c: colors[i % colors.length]
+      });
+    }
+
+    if (fxTimer) { cancelAnimationFrame(fxTimer); fxTimer = null; }
+    if (fxStop) clearTimeout(fxStop);
+    // 画面を裏に回されて rAF が止まっても、実時間 1.1 秒で必ず消す
+    fxStop = setTimeout(function () {
+      if (fxTimer) { cancelAnimationFrame(fxTimer); fxTimer = null; }
+      clearAll();
+    }, 1100);
+    var t0 = Date.now();
+    (function frame() {
+      var t = Date.now() - t0;
+      if (t >= LIFE) {
+        clearAll();
+        fxTimer = null;
+        return;
+      }
+      clearAll();
+      ctx.globalAlpha = Math.max(0, 1 - t / LIFE);
+      for (var i = 0; i < ps.length; i++) {
+        var p = ps[i];
+        p.x += p.vx; p.y += p.vy; p.vy += 0.16; p.vx *= 0.99; p.rot += p.vr;
+        ctx.save();
+        ctx.translate(p.x, p.y);
+        ctx.rotate(p.rot);
+        ctx.fillStyle = p.c;
+        ctx.fillRect(-p.w / 2, -p.h / 2, p.w, p.h);
+        ctx.restore();
+      }
+      ctx.globalAlpha = 1;
+      fxTimer = requestAnimationFrame(frame);
+    })();
+  }
+
+  /** 受け取った履歴を反映する。増えた時だけ演出する（取消や初回は出さない） */
+  function applyDraws(list) {
+    var isNew = (prevLen !== null) && list.length > prevLen;
+    draws = list;
+    prevLen = list.length;
+    render();
+    if (isNew) celebrate();
+  }
+
+  /* ============================================================
+   * 取得（2 秒ごと・If-None-Match で 304）
+   * ==========================================================*/
   /** サーバが無いとき（file:// でのリハ）は同じ端末のホスト画面の控えを読む */
   function localFallback() {
     var s = TB.store.get("tb.host." + GID);
-    if (s && s.draws) {
-      draws = s.draws.slice();
-      lastOk = new Date();
-      render();
-    }
+    if (s && s.draws) { lastOk = new Date(); applyDraws(s.draws.slice()); }
     setStatus();
   }
 
@@ -93,12 +198,12 @@
       if (r.ok && r.status === 304) { lastOk = new Date(); setStatus(); return; }
       if (r.ok && r.data && r.data.draws) {
         etag = r.etag || etag;
-        draws = r.data.draws;
         lastOk = new Date();
-        render(); setStatus();
+        applyDraws(r.data.draws);
+        setStatus();
         return;
       }
-      if (r.status === 404) { lastOk = new Date(); draws = []; render(); setStatus(); return; }
+      if (r.status === 404) { lastOk = new Date(); applyDraws([]); setStatus(); return; }
       setStatus();                                   // 通信断：最終更新の時刻を出したまま待つ
     });
   }
