@@ -75,7 +75,7 @@ def outline(path_font):
 
     for ch in LEFT:
         emit(ch)
-    bolt_x = pen_x - 8   # 2026-09-16 18:04 管理者「稲妻をもう少し左に（ビが隠れる）」＝ +6 → -8
+    bolt_x = pen_x - 22  # 2026-09-16 18:04 管理者「稲妻をもう少し左に（ビが隠れる）」＝ +6 → -8
     pen_x += BOLT_ADV
     for ch in RIGHT:
         emit(ch)

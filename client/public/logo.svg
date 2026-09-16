@@ -107,7 +107,7 @@
       </g>
 
       <!-- ④ ⚡（お手本の意匠に合わせて小さめ・黄） -->
-      <g transform="translate(490.0 -148) rotate(-8 45 56) scale(1.5996)">
+      <g transform="translate(476.0 -148) rotate(-8 45 56) scale(1.5996)">
         <path d="M 54 0 L 12 60 L 36 60 L 24 112 L 78 44 L 50 44 Z" fill="none" stroke="#050b28" stroke-width="26" stroke-linejoin="round"/>
         <path d="M 54 0 L 12 60 L 36 60 L 24 112 L 78 44 L 50 44 Z" fill="url(#tb-bolt)"/>
       </g>
