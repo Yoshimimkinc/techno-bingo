@@ -175,7 +175,7 @@ async function postReset(env, id, body) {
 
   const game = {
     game_id: id,
-    title: typeof body.title === "string" && body.title ? body.title.slice(0, 40) : "テクノのビンゴ",
+    title: typeof body.title === "string" && body.title ? body.title.slice(0, 40) : "テクノ☆ビンゴ",
     status: "ready",
     max_number: MAX_NUMBER,
     pin_hash: await sha256(pin),

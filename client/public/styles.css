@@ -67,26 +67,25 @@ body { display: flex; flex-direction: column; }
 .screen { display: none; flex: 1 1 auto; min-height: 0; flex-direction: column; }
 .screen.on { display: flex; }
 
-/* ---------- BINGO!! ロゴ ---------- */
-.logo {
-  display: flex; align-items: center; justify-content: center;
-  gap: 4px; padding: 8px 10px 4px;
-  flex: 0 0 auto;
+/* ---------- 表題「テクノ☆ビンゴ」 ----------
+   見出しはこの 1 クラスだけ。ロゴ PNG が届いたら、ここを <img> に差し替えれば全画面に効く。
+   色＝オレンジ→赤のグラデーション＋ネオングロー。 */
+.tb-title {
+  margin: 0; flex: 0 0 auto; text-align: center;
+  font-family: var(--ui-font); font-weight: 900;
+  font-size: min(6.4vw, 30px); line-height: 1.15;
+  letter-spacing: .04em;
+  padding: 6px 10px 2px;
+  color: #ff7a18;                       /* グラデが使えない環境でも必ず見える単色 */
 }
-.logo b {
-  display: inline-flex; align-items: center; justify-content: center;
-  width: min(13vw, 56px); height: min(13vw, 56px);
-  border-radius: 10px; font-size: min(7.5vw, 32px); line-height: 1;
-  font-family: var(--num-font); font-weight: 700; color: #0b0f1a;
-}
-.logo b:nth-child(1) { background: #ff4d6d; }
-.logo b:nth-child(2) { background: #ffb703; }
-.logo b:nth-child(3) { background: #4cc9f0; }
-.logo b:nth-child(4) { background: #80ed99; }
-.logo b:nth-child(5) { background: #c77dff; }
-.logo i {
-  font-style: normal; font-weight: 900; font-size: min(8vw, 34px); color: var(--num);
-  margin-left: 2px; letter-spacing: -0.04em; line-height: 1;
+.tb-title.big { font-size: min(10vw, 46px); padding: 2px 10px 6px; }
+@supports ((-webkit-background-clip: text) or (background-clip: text)) {
+  .tb-title {
+    background-image: linear-gradient(180deg, #ffb347 0%, #ff7a18 52%, #ff5a1f 100%);
+    -webkit-background-clip: text; background-clip: text;
+    color: transparent; -webkit-text-fill-color: transparent;
+    filter: drop-shadow(0 0 5px rgba(255, 122, 24, .8)) drop-shadow(0 0 16px rgba(255, 90, 31, .55));
+  }
 }
 
 /* ---------- でか文字 ---------- */
@@ -273,7 +272,7 @@ body.projector #h1.screen.on {
   height: 100vh; min-height: 0;
 }
 body.projector .topbar { grid-area: bar; }
-body.projector .logo { grid-area: logo; padding: 0 10px; }
+body.projector .tb-title { grid-area: logo; }
 body.projector .bignum-wrap { grid-area: num; min-height: 0; }
 body.projector .footer { grid-area: btn; }
 body.projector .chips { display: none; }          /* 盤面が履歴を兼ねる */
@@ -285,8 +284,7 @@ body.projector .board-wrap {
 body.projector .btn-draw { min-height: min(11vh, 110px); font-size: min(3.2vw, 44px); }
 body.projector .bigletter { font-size: min(5vw, 9vh); }
 body.projector .bigsub { font-size: min(1.5vw, 20px); }
-body.projector .logo b { width: min(4.6vw, 58px); height: min(4.6vw, 58px); font-size: min(2.7vw, 34px); }
-body.projector .logo i { font-size: min(3vw, 36px); }
+body.projector .tb-title { font-size: min(3.4vw, 46px); padding: 2px 10px; }
 
 .board {
   flex: 1 1 auto; min-height: 0;
@@ -302,8 +300,19 @@ body.projector .logo i { font-size: min(3vw, 36px); }
   font-size: min(2.2vw, 8vh); line-height: 1;
   min-width: 0; overflow: hidden;
 }
-/* 行見出しも「出た番号」と同じ塗りにして、盤面を 3 色で統一する */
-.blabel { width: min(4vw, 64px); background: var(--c-hit); color: var(--c-on-hit); opacity: .82; }
+/* 行見出しは「表題と同じ色」（オレンジ→赤のグラデ文字）。塗らないので出たマスの青と混ざらない */
+.blabel {
+  width: min(4vw, 64px); background: transparent;
+  color: #ff7a18; font-weight: 900;
+}
+@supports ((-webkit-background-clip: text) or (background-clip: text)) {
+  .blabel {
+    background-image: linear-gradient(180deg, #ffb347 0%, #ff7a18 52%, #ff5a1f 100%);
+    -webkit-background-clip: text; background-clip: text;
+    color: transparent; -webkit-text-fill-color: transparent;
+    filter: drop-shadow(0 0 4px rgba(255, 122, 24, .8));
+  }
+}
 /* 未出＝背景とほぼ同化（数字は読めなくてよい）。出た＝濃い塗り＋白文字。最新＝黄＋白の太枠。
    遠目で見たとき「塗られたマスの並び」だけが浮き上がるようにする。 */
 .bcell { background: var(--cell-off-bg); color: var(--cell-off-fg); }
@@ -321,15 +330,30 @@ body.projector .logo i { font-size: min(3vw, 36px); }
 }
 
 /* ============================================================
-   参加者画面（v03）— ガラス風カードと確定の演出
-   ここは body.guest の中だけ。ホスト画面には影響させない。
+   参加者画面（v04）— ガラス風カード ＋ 8bit シンセウェーブの確定演出
+   ここは body.guest の中だけ。ホスト画面・プロジェクター表示には影響させない。
+   「光る」が主役。演出中の一瞬は可読性より光量を優先し、
+   最後の 0.4 秒で必ず読める状態に落ち着かせる。合計 1.6 秒。
+   ※3 色以内の原則は、この演出（動いている間）に限り解除。
+     定常状態（止まっている画面）は従来どおり 背景／出た／最新 の 3 色。
    ============================================================ */
 body.guest {
   background: linear-gradient(160deg, var(--guest-bg-1) 0%, var(--guest-bg-2) 100%);
   background-attachment: fixed;
+  overflow-x: hidden;            /* 広がるリングで横スクロールが出ないように */
 }
 
-/* 出た番号のカード＝半透明の白＋ぼかし＋細い縁 */
+/* 参加者画面 G1 の見出し（揺らす対象） */
+body.guest #glogo { font-size: min(5.6vw, 26px); padding: 2px 10px 0; }
+
+/* ネオン 3 色（演出専用） */
+:root {
+  --neon-cy: #00e5ff;
+  --neon-mg: #ff2bd6;
+  --neon-or: #ff7a18;
+}
+
+/* ---------- 出た番号のカード（定常状態＝ガラス風） ---------- */
 body.guest .cell {
   background: var(--glass-bg);
   border: 1px solid var(--glass-line);
@@ -339,7 +363,6 @@ body.guest .cell {
   -webkit-backdrop-filter: blur(var(--glass-blur));
   box-shadow: 0 6px 18px rgba(0, 0, 0, .3), inset 0 1px 0 rgba(255, 255, 255, .18);
 }
-/* 最新＝縁を明るく・わずかに大きく（でか文字と同じ黄で揃える） */
 body.guest .cell.latest {
   background: rgba(255, 214, 10, .22);
   border-color: rgba(255, 214, 10, .85);
@@ -347,36 +370,150 @@ body.guest .cell.latest {
   transform: scale(1.06);
   box-shadow: 0 8px 26px rgba(255, 214, 10, .22), inset 0 1px 0 rgba(255, 255, 255, .3);
 }
-/* backdrop-filter が無いブラウザ：ぼかさない代わりに少し濃くして必ず読めるようにする */
 @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
   body.guest .cell { background: rgba(255, 255, 255, .2); }
   body.guest .cell.latest { background: rgba(255, 214, 10, .3); }
 }
 
-/* 確定演出①：でか文字が拡大しながらフェードイン（0.4 秒） */
-.bignum.burst { animation: burst 400ms cubic-bezier(.16, 1, .3, 1); }
-@keyframes burst {
-  0% { transform: scale(1.6); opacity: 0; }
-  45% { opacity: 1; }
-  100% { transform: scale(1); opacity: 1; }
+/* 新しいカードが上から滑り込み、1.6 秒だけネオンの縁が光る */
+body.guest .cell.slidein { animation: slidein 560ms cubic-bezier(.2, 1.25, .3, 1); }
+@keyframes slidein {
+  0% { transform: translateY(-150%) scale(1.2); opacity: 0; }
+  55% { opacity: 1; }
+  100% { transform: translateY(0) scale(1.06); opacity: 1; }
+}
+body.guest .cell.neon { animation: cellneon 1600ms ease-out 1 !important; }
+@keyframes cellneon {
+  0%   { border-color: #fff;
+         box-shadow: 0 0 22px 6px var(--neon-cy), 0 0 44px 12px rgba(255, 43, 214, .55), inset 0 0 18px rgba(255, 255, 255, .8); }
+  25%  { border-color: var(--neon-mg);
+         box-shadow: 0 0 18px 5px var(--neon-mg), 0 0 40px 10px rgba(0, 229, 255, .5), inset 0 0 14px rgba(255, 255, 255, .6); }
+  55%  { border-color: var(--neon-or);
+         box-shadow: 0 0 20px 6px var(--neon-or), 0 0 46px 12px rgba(255, 43, 214, .45), inset 0 0 12px rgba(255, 255, 255, .5); }
+  100% { border-color: rgba(255, 214, 10, .85);
+         box-shadow: 0 8px 26px rgba(255, 214, 10, .22), inset 0 1px 0 rgba(255, 255, 255, .3); }
 }
 
-/* 確定演出②：画面全体に一瞬の光 */
-.flash {
-  position: fixed; inset: 0; z-index: 5; pointer-events: none; opacity: 0;
-  background: radial-gradient(circle at 50% 38%,
-    rgba(255, 255, 255, .5) 0%, rgba(255, 214, 10, .26) 26%, rgba(255, 255, 255, 0) 62%);
+/* ---------- ①画面全体：暗転 →「ドン・ドドン」の 3 拍 ---------- */
+.flash { position: fixed; inset: 0; z-index: 6; pointer-events: none; }
+.flash i {
+  position: absolute; inset: 0; display: block; opacity: 0;
+  mix-blend-mode: screen;
 }
-.flash.on { animation: flashfx 520ms ease-out; }
-@keyframes flashfx { 0% { opacity: 0; } 16% { opacity: 1; } 100% { opacity: 0; } }
+.flash .f0 { background: #000; mix-blend-mode: normal; }         /* 暗転 */
+.flash .f1 { background: radial-gradient(circle at 50% 40%, rgba(255,255,255,.95) 0%, rgba(255,255,255,.35) 32%, rgba(255,255,255,0) 66%); }
+.flash .f2 { background: radial-gradient(circle at 50% 40%, rgba(0,229,255,.95) 0%, rgba(0,229,255,.3) 38%, rgba(0,229,255,0) 70%); }
+.flash .f3 { background: radial-gradient(circle at 50% 40%, rgba(255,43,214,1) 0%, rgba(255,43,214,.38) 42%, rgba(255,43,214,0) 74%); }
+/* 拍ごとに光量を上げる：0.00s 白(小) → 0.25s シアン(中) → 0.40s マゼンタ(大) */
+.flash.on .f0 { animation: beat0 160ms ease-out; }
+.flash.on .f1 { animation: beat1 300ms ease-out; }
+.flash.on .f2 { animation: beat2 320ms ease-out 250ms; }
+.flash.on .f3 { animation: beat3 420ms ease-out 400ms; }
+@keyframes beat0 { 0% { opacity: .0; } 22% { opacity: .85; } 100% { opacity: 0; } }
+@keyframes beat1 { 0% { opacity: 0; } 12% { opacity: .75; } 100% { opacity: 0; } }
+@keyframes beat2 { 0% { opacity: 0; } 12% { opacity: .9; } 100% { opacity: 0; } }
+@keyframes beat3 { 0% { opacity: 0; } 12% { opacity: 1; } 100% { opacity: 0; } }
 
-/* 確定演出③：数字のまわりの紙吹雪（canvas・1 秒で必ず消える） */
-.fx { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; z-index: 2; }
+/* ---------- ①画面ゆれ（±6px・0.3 秒） ---------- */
+#g1.quake { animation: quake 100ms steps(2, end) 3; }   /* 100ms × 3 ＝ 0.3 秒 */
+@keyframes quake {
+  0% { transform: translate(0, 0); }
+  25% { transform: translate(-6px, 3px); }
+  50% { transform: translate(5px, -4px); }
+  75% { transform: translate(-4px, -2px); }
+  100% { transform: translate(0, 0); }
+}
+.tb-title.quake2 { animation: quake2 420ms ease-in-out; }
+@keyframes quake2 {
+  0%, 100% { transform: translate(0, 0) rotate(0); }
+  20% { transform: translate(-5px, 2px) rotate(-1.5deg); }
+  45% { transform: translate(4px, -3px) rotate(1.5deg); }
+  70% { transform: translate(-3px, 1px) rotate(-1deg); }
+}
 
-/* 動きを減らす設定の端末では、拡大だけにする（光・紙吹雪・バイブは出さない） */
+/* ---------- ①背景を走るネオングリッド（1.6 秒だけ） ---------- */
+.neongrid {
+  position: fixed; left: -25%; right: -25%; bottom: 0; height: 62vh;
+  z-index: -1; opacity: 0; pointer-events: none; overflow: hidden;
+  perspective: 190px; perspective-origin: 50% 0%;
+}
+.neongrid::before {
+  content: ""; position: absolute; left: 0; right: 0; top: -60%; bottom: -120px;
+  background-image:
+    repeating-linear-gradient(to right, rgba(255, 43, 214, .75) 0 2px, transparent 2px 84px),
+    repeating-linear-gradient(to bottom, rgba(0, 229, 255, .75) 0 2px, transparent 2px 84px);
+  transform: rotateX(74deg); transform-origin: 50% 100%;
+  filter: drop-shadow(0 0 6px rgba(0, 229, 255, .9));
+}
+.neongrid.on { animation: gridfade 1600ms linear; }
+.neongrid.on::before { animation: gridrun 1600ms linear; }
+@keyframes gridrun { from { background-position: 0 0, 0 0; } to { background-position: 0 0, 0 252px; } }
+@keyframes gridfade { 0% { opacity: 0; } 8% { opacity: .95; } 60% { opacity: .8; } 100% { opacity: 0; } }
+
+/* ---------- ②でか文字：2.2 倍から 1 回跳ねて着地・4 層グローが 2 回脈打つ ---------- */
+body.guest .bignum { position: relative; z-index: 2; }
+.bignum.mega { animation: mega 1600ms cubic-bezier(.18, .9, .3, 1.35); }
+@keyframes mega {
+  0% {
+    transform: scale(2.2); opacity: 0; color: var(--neon-or);
+    text-shadow: 0 0 6px #fff, 0 0 22px var(--neon-or), 0 0 40px var(--neon-mg), 0 0 60px var(--neon-cy);
+  }
+  8% { opacity: 1; }
+  /* 1 回目のパルス（最大光量） */
+  18% {
+    transform: scale(.88); color: #ffffff;
+    text-shadow: 0 0 10px #fff, 0 0 30px var(--neon-or), 0 0 50px var(--neon-mg), 0 0 60px var(--neon-cy);
+  }
+  30% {
+    transform: scale(1.12); color: var(--neon-or);
+    text-shadow: 0 0 4px #fff, 0 0 12px var(--neon-or), 0 0 22px var(--neon-mg), 0 0 30px var(--neon-cy);
+  }
+  /* 2 回目のパルス */
+  46% {
+    transform: scale(1); color: #ffffff;
+    text-shadow: 0 0 10px #fff, 0 0 28px var(--neon-cy), 0 0 46px var(--neon-mg), 0 0 60px var(--neon-or);
+  }
+  62% {
+    color: #ffffff;
+    text-shadow: 0 0 6px #fff, 0 0 16px var(--neon-cy), 0 0 28px var(--neon-mg), 0 0 38px var(--neon-or);
+  }
+  /* 最後の 0.4 秒で読める状態へ落ち着く */
+  100% {
+    transform: scale(1); color: var(--c-latest);
+    text-shadow: 0 0 2px rgba(255, 255, 255, .5), 0 0 10px rgba(255, 122, 24, .5), 0 0 0 rgba(255, 43, 214, 0), 0 0 0 rgba(0, 229, 255, 0);
+  }
+}
+
+/* ---------- ②数字の背後のショックウェーブ（3 本・ネオン発光） ---------- */
+.shock { position: absolute; left: 50%; top: 50%; width: 0; height: 0; pointer-events: none; z-index: 1; }
+.shock i {
+  position: absolute; left: 0; top: 0; display: block;
+  width: 46vmin; height: 46vmin; margin: -23vmin 0 0 -23vmin;
+  border-radius: 50%; border: .6vmin solid var(--neon-cy);
+  opacity: 0;
+}
+.shock.on i { animation: shock 1000ms cubic-bezier(.12, .7, .25, 1); }
+.shock.on i:nth-child(2) { animation-delay: 150ms; border-color: var(--neon-mg); }
+.shock.on i:nth-child(3) { animation-delay: 300ms; border-color: var(--neon-or); }
+@keyframes shock {
+  0% { transform: scale(.12); opacity: 0; box-shadow: 0 0 0 0 currentColor; }
+  12% { opacity: .95; box-shadow: 0 0 26px 8px var(--neon-cy), inset 0 0 22px 4px var(--neon-mg); }
+  100% { transform: scale(2.1); opacity: 0; box-shadow: 0 0 40px 14px rgba(255, 43, 214, 0), inset 0 0 0 0 rgba(0, 229, 255, 0); }
+}
+
+/* ---------- ③パーティクル（JS が作って演出後に外す） ---------- */
+.fx { position: fixed; inset: 0; width: 100%; height: 100%; pointer-events: none; z-index: 4; }
+
+/* ---------- 動きを減らす設定：拡大と色だけ ---------- */
 @media (prefers-reduced-motion: reduce) {
-  .flash, .fx { display: none !important; }
-  .bignum.burst { animation-duration: 200ms; }
+  .flash, .fx, .neongrid, .shock { display: none !important; }
+  #g1.quake, .tb-title.quake2 { animation: none !important; }
+  body.guest .cell.slidein, body.guest .cell.neon { animation: none !important; }
+  .bignum.mega { animation: megaquiet 400ms ease-out; }
+  @keyframes megaquiet {
+    0% { transform: scale(1.5); opacity: 0; color: #fff; }
+    100% { transform: scale(1); opacity: 1; color: var(--c-latest); }
+  }
 }
 
 /* ---------- シート（メニュー・確認・QR） ---------- */
